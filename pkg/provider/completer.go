@@ -9,8 +9,10 @@ type Completer interface {
 }
 
 type Message struct {
-	Role    MessageRole
+	Role MessageRole
+
 	Content string
+	Refusal string
 
 	Files []File
 
@@ -38,6 +40,7 @@ type StreamHandler = func(ctx context.Context, completion Completion) error
 
 type CompleteOptions struct {
 	Stream StreamHandler
+
 	Effort ReasoningEffort
 
 	Stop  []string
@@ -55,7 +58,7 @@ type Completion struct {
 
 	Reason CompletionReason
 
-	Message Message
+	Message *Message
 
 	Usage *Usage
 }

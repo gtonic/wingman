@@ -89,7 +89,7 @@ func (c *Completer) complete(ctx context.Context, req *bedrockruntime.ConverseIn
 		ID:     uuid.New().String(),
 		Reason: toCompletionResult(resp.StopReason),
 
-		Message: provider.Message{
+		Message: &provider.Message{
 			Role: provider.MessageRoleAssistant,
 
 			Content:   toContent(resp.Output),
@@ -108,7 +108,7 @@ func (c *Completer) completeStream(ctx context.Context, req *bedrockruntime.Conv
 	result := &provider.Completion{
 		ID: uuid.New().String(),
 
-		Message: provider.Message{
+		Message: &provider.Message{
 			Role: provider.MessageRoleAssistant,
 		},
 
@@ -144,7 +144,7 @@ func (c *Completer) completeStream(ctx context.Context, req *bedrockruntime.Conv
 					completion := provider.Completion{
 						ID: result.ID,
 
-						Message: provider.Message{
+						Message: &provider.Message{
 							Role:    provider.MessageRoleAssistant,
 							Content: content,
 						},
@@ -167,7 +167,7 @@ func (c *Completer) completeStream(ctx context.Context, req *bedrockruntime.Conv
 					delta := provider.Completion{
 						ID: result.ID,
 
-						Message: provider.Message{
+						Message: &provider.Message{
 							Role: provider.MessageRoleAssistant,
 
 							ToolCalls: []provider.ToolCall{
@@ -198,7 +198,7 @@ func (c *Completer) completeStream(ctx context.Context, req *bedrockruntime.Conv
 				ID:     result.ID,
 				Reason: result.Reason,
 
-				Message: provider.Message{
+				Message: &provider.Message{
 					Role:    provider.MessageRoleAssistant,
 					Content: "",
 				},

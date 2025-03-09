@@ -77,7 +77,7 @@ func (c *Completer) complete(ctx context.Context, req *v2.V2ChatRequest, options
 		ID:     resp.Id,
 		Reason: toCompletionReason(resp.FinishReason),
 
-		Message: provider.Message{
+		Message: &provider.Message{
 			Role:    provider.MessageRoleAssistant,
 			Content: fromAssistantMessageContent(resp.Message),
 		},
@@ -96,7 +96,7 @@ func (c *Completer) completeStream(ctx context.Context, req *v2.V2ChatStreamRequ
 	result := &provider.Completion{
 		ID: uuid.New().String(),
 
-		Message: provider.Message{
+		Message: &provider.Message{
 			Role: provider.MessageRoleAssistant,
 		},
 
@@ -130,7 +130,7 @@ func (c *Completer) completeStream(ctx context.Context, req *v2.V2ChatStreamRequ
 					delta := provider.Completion{
 						ID: result.ID,
 
-						Message: provider.Message{
+						Message: &provider.Message{
 							Role:    provider.MessageRoleAssistant,
 							Content: content,
 						},
@@ -153,7 +153,7 @@ func (c *Completer) completeStream(ctx context.Context, req *v2.V2ChatStreamRequ
 					delta := provider.Completion{
 						ID: result.ID,
 
-						Message: provider.Message{
+						Message: &provider.Message{
 							Role:    provider.MessageRoleAssistant,
 							Content: content,
 						},
@@ -175,7 +175,7 @@ func (c *Completer) completeStream(ctx context.Context, req *v2.V2ChatStreamRequ
 			delta := provider.Completion{
 				ID: result.ID,
 
-				Message: provider.Message{
+				Message: &provider.Message{
 					Role:    provider.MessageRoleAssistant,
 					Content: "",
 				},
@@ -222,7 +222,7 @@ func (c *Completer) completeStream(ctx context.Context, req *v2.V2ChatStreamRequ
 				delta := provider.Completion{
 					ID: result.ID,
 
-					Message: provider.Message{
+					Message: &provider.Message{
 						Role: provider.MessageRoleAssistant,
 
 						ToolCalls: []provider.ToolCall{tool},
@@ -255,7 +255,7 @@ func (c *Completer) completeStream(ctx context.Context, req *v2.V2ChatStreamRequ
 				delta := provider.Completion{
 					ID: result.ID,
 
-					Message: provider.Message{
+					Message: &provider.Message{
 						Role: provider.MessageRoleAssistant,
 
 						ToolCalls: []provider.ToolCall{tool},

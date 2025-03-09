@@ -180,7 +180,12 @@ func (c *Chain) Complete(ctx context.Context, messages []provider.Message, optio
 			return nil, err
 		}
 
-		input = append(input, completion.Message)
+		if completion.Message == nil {
+			result = completion
+			break
+		}
+
+		input = append(input, *completion.Message)
 
 		var loop bool
 

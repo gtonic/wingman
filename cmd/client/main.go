@@ -155,6 +155,10 @@ LOOP:
 		stream := client.Chat.Completions.NewStreaming(ctx, openai.ChatCompletionNewParams{
 			Model:    openai.F(model),
 			Messages: openai.F(messages),
+
+			StreamOptions: openai.F(openai.ChatCompletionStreamOptionsParam{
+				IncludeUsage: openai.F(true),
+			}),
 		})
 
 		completion := openai.ChatCompletionAccumulator{}

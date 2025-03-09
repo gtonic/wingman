@@ -68,8 +68,10 @@ func (h *Handler) handleChatCompletion(w http.ResponseWriter, r *http.Request) {
 	switch req.ReasoningEffort {
 	case ReasoningEffortLow:
 		options.Effort = provider.ReasoningEffortLow
+
 	case ReasoningEffortMedium:
 		options.Effort = provider.ReasoningEffortMedium
+
 	case ReasoningEffortHigh:
 		options.Effort = provider.ReasoningEffortHigh
 	}
@@ -97,8 +99,6 @@ func (h *Handler) handleChatCompletion(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Cache-Control", "no-cache")
 		w.Header().Set("Connection", "keep-alive")
 
-		rc := http.NewResponseController(w)
-
 		options.Stream = func(ctx context.Context, completion provider.Completion) error {
 			result := ChatCompletion{
 				Object: "chat.completion.chunk",
@@ -108,55 +108,63 @@ func (h *Handler) handleChatCompletion(w http.ResponseWriter, r *http.Request) {
 				Model:   req.Model,
 				Created: time.Now().Unix(),
 
-				Choices: []ChatCompletionChoice{
-					{
-						FinishReason: oaiFinishReason(completion.Reason),
+				Choices: []ChatCompletionChoice{},
+			}
 
+			if completion.Message != nil {
+				result.Choices = []ChatCompletionChoice{
+					{
 						Delta: &ChatCompletionMessage{
-							Role:    oaiMessageRole(completion.Message.Role),
+							Role: oaiMessageRole(completion.Message.Role),
+
 							Content: completion.Message.Content,
+							Refusal: completion.Message.Refusal,
 
 							ToolCalls:  oaiToolCalls(completion.Message.ToolCalls),
 							ToolCallID: completion.Message.Tool,
 						},
-					},
-				},
-			}
 
-			if completion.Usage != nil {
-				result.Usage = &Usage{
-					PromptTokens:     completion.Usage.InputTokens,
-					CompletionTokens: completion.Usage.OutputTokens,
-					TotalTokens:      completion.Usage.InputTokens + completion.Usage.OutputTokens,
+						FinishReason: oaiFinishReason(completion.Reason),
+					},
 				}
 			}
 
-			var data bytes.Buffer
-
-			enc := json.NewEncoder(&data)
-			enc.SetEscapeHTML(false)
-			enc.Encode(result)
-
-			event := strings.TrimSpace(data.String())
-
-			if _, err := fmt.Fprintf(w, "data: %s\n\n", event); err != nil {
-				return err
+			if completion.Message == nil {
+				return nil
 			}
 
-			if err := rc.Flush(); err != nil {
-				return err
-			}
-
-			return nil
+			return writeEventData(w, result)
 		}
 
-		if _, err := completer.Complete(r.Context(), messages, options); err != nil {
+		completion, err := completer.Complete(r.Context(), messages, options)
+
+		if err != nil {
 			writeError(w, http.StatusBadRequest, err)
 			return
 		}
 
+		if completion.Usage != nil && req.StreamOptions != nil && req.StreamOptions.IncludeUsage != nil && *req.StreamOptions.IncludeUsage {
+			result := ChatCompletion{
+				Object: "chat.completion.chunk",
+
+				ID: completion.ID,
+
+				Model:   req.Model,
+				Created: time.Now().Unix(),
+
+				Choices: []ChatCompletionChoice{},
+			}
+
+			result.Usage = &Usage{
+				PromptTokens:     completion.Usage.InputTokens,
+				CompletionTokens: completion.Usage.OutputTokens,
+				TotalTokens:      completion.Usage.InputTokens + completion.Usage.OutputTokens,
+			}
+
+			writeEventData(w, result)
+		}
+
 		fmt.Fprintf(w, "data: [DONE]\n\n")
-		rc.Flush()
 	} else {
 		completion, err := completer.Complete(r.Context(), messages, options)
 
@@ -173,19 +181,25 @@ func (h *Handler) handleChatCompletion(w http.ResponseWriter, r *http.Request) {
 			Model:   req.Model,
 			Created: time.Now().Unix(),
 
-			Choices: []ChatCompletionChoice{
-				{
-					FinishReason: oaiFinishReason(completion.Reason),
+			Choices: []ChatCompletionChoice{},
+		}
 
+		if completion.Message != nil {
+			result.Choices = []ChatCompletionChoice{
+				{
 					Message: &ChatCompletionMessage{
-						Role:    oaiMessageRole(completion.Message.Role),
+						Role: oaiMessageRole(completion.Message.Role),
+
 						Content: completion.Message.Content,
+						Refusal: completion.Message.Refusal,
 
 						ToolCalls:  oaiToolCalls(completion.Message.ToolCalls),
 						ToolCallID: completion.Message.Tool,
 					},
+
+					FinishReason: oaiFinishReason(completion.Reason),
 				},
-			},
+			}
 		}
 
 		if completion.Usage != nil {

@@ -71,7 +71,7 @@ func (c *Completer) complete(ctx context.Context, req openai.ChatCompletionNewPa
 		ID:     completion.ID,
 		Reason: reason,
 
-		Message: provider.Message{
+		Message: &provider.Message{
 			Role:    provider.MessageRoleAssistant,
 			Content: choice.Message.Content,
 
@@ -88,28 +88,36 @@ func (c *Completer) complete(ctx context.Context, req openai.ChatCompletionNewPa
 func (c *Completer) completeStream(ctx context.Context, req openai.ChatCompletionNewParams, options *provider.CompleteOptions) (*provider.Completion, error) {
 	stream := c.completions.NewStreaming(ctx, req)
 
-	completion := openai.ChatCompletionAccumulator{}
+	result := openai.ChatCompletionAccumulator{}
 
 	for stream.Next() {
 		chunk := stream.Current()
-		completion.AddChunk(chunk)
-
-		if len(chunk.Choices) == 0 {
-			continue
-		}
-
-		choice := chunk.Choices[0]
+		result.AddChunk(chunk)
 
 		delta := provider.Completion{
-			ID:     completion.ID,
-			Reason: toDeltaCompletionResult(choice.FinishReason),
+			ID: result.ID,
 
-			Message: provider.Message{
-				Role:    provider.MessageRoleAssistant,
-				Content: choice.Delta.Content,
-
-				ToolCalls: toDeltaToolCalls(choice.Delta.ToolCalls),
+			Message: &provider.Message{
+				Role: provider.MessageRoleAssistant,
 			},
+		}
+
+		if len(chunk.Choices) > 0 {
+			choice := chunk.Choices[0]
+
+			delta.Reason = toDeltaCompletionResult(choice.FinishReason)
+
+			delta.Message.Content = choice.Delta.Content
+			delta.Message.Refusal = choice.Delta.Refusal
+
+			delta.Message.ToolCalls = toDeltaToolCalls(choice.Delta.ToolCalls)
+		}
+
+		if chunk.Usage.TotalTokens > 0 {
+			delta.Usage = &provider.Usage{
+				InputTokens:  int(chunk.Usage.PromptTokens),
+				OutputTokens: int(chunk.Usage.CompletionTokens),
+			}
 		}
 
 		if err := options.Stream(ctx, delta); err != nil {
@@ -121,29 +129,37 @@ func (c *Completer) completeStream(ctx context.Context, req openai.ChatCompletio
 		return nil, convertError(err)
 	}
 
-	choice := completion.Choices[0]
+	choice := result.Choices[0]
 	reason := toCompletionResult(choice.FinishReason)
 
 	if reason == "" {
 		reason = provider.CompletionReasonStop
 	}
 
-	return &provider.Completion{
-		ID:     completion.ID,
+	completion := &provider.Completion{
+		ID:     result.ID,
 		Reason: reason,
 
-		Message: provider.Message{
-			Role:    provider.MessageRoleAssistant,
-			Content: choice.Message.Content,
-
-			ToolCalls: toToolCalls(choice.Message.ToolCalls),
+		Message: &provider.Message{
+			Role: provider.MessageRoleAssistant,
 		},
+	}
 
-		Usage: &provider.Usage{
-			InputTokens:  int(completion.Usage.PromptTokens),
-			OutputTokens: int(completion.Usage.CompletionTokens),
-		},
-	}, nil
+	if len(result.Choices) > 0 {
+		completion.Message.Content = choice.Message.Content
+		completion.Message.Refusal = choice.Message.Refusal
+
+		completion.Message.ToolCalls = toToolCalls(choice.Message.ToolCalls)
+	}
+
+	if result.Usage.TotalTokens > 0 {
+		completion.Usage = &provider.Usage{
+			InputTokens:  int(result.Usage.PromptTokens),
+			OutputTokens: int(result.Usage.CompletionTokens),
+		}
+	}
+
+	return completion, nil
 }
 
 func (c *Completer) convertCompletionRequest(input []provider.Message, options *provider.CompleteOptions) (*openai.ChatCompletionNewParams, error) {
@@ -167,6 +183,12 @@ func (c *Completer) convertCompletionRequest(input []provider.Message, options *
 		Model: openai.F(c.model),
 	}
 
+	if options.Stream != nil {
+		req.StreamOptions = openai.F(openai.ChatCompletionStreamOptionsParam{
+			IncludeUsage: openai.F(true),
+		})
+	}
+
 	if len(tools) > 0 {
 		req.Tools = openai.F(tools)
 	}
@@ -178,8 +200,10 @@ func (c *Completer) convertCompletionRequest(input []provider.Message, options *
 	switch options.Effort {
 	case provider.ReasoningEffortLow:
 		req.ReasoningEffort = openai.F(openai.ChatCompletionReasoningEffortLow)
+
 	case provider.ReasoningEffortMedium:
 		req.ReasoningEffort = openai.F(openai.ChatCompletionReasoningEffortMedium)
+
 	case provider.ReasoningEffortHigh:
 		req.ReasoningEffort = openai.F(openai.ChatCompletionReasoningEffortHigh)
 	}

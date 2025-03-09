@@ -64,7 +64,7 @@ func (c *Completer) complete(ctx context.Context, req anthropic.MessageNewParams
 		ID:     message.ID,
 		Reason: toCompletionResult(message.StopReason),
 
-		Message: provider.Message{
+		Message: &provider.Message{
 			Role:    provider.MessageRoleAssistant,
 			Content: toContent(message.Content),
 
@@ -98,7 +98,7 @@ func (c *Completer) completeStream(ctx context.Context, req anthropic.MessageNew
 			delta := provider.Completion{
 				ID: message.ID,
 
-				Message: provider.Message{
+				Message: &provider.Message{
 					Role:    provider.MessageRoleAssistant,
 					Content: event.ContentBlock.Text,
 				},
@@ -125,7 +125,7 @@ func (c *Completer) completeStream(ctx context.Context, req anthropic.MessageNew
 			delta := provider.Completion{
 				ID: message.ID,
 
-				Message: provider.Message{
+				Message: &provider.Message{
 					Role:    provider.MessageRoleAssistant,
 					Content: event.Delta.Text,
 				},
@@ -157,7 +157,9 @@ func (c *Completer) completeStream(ctx context.Context, req anthropic.MessageNew
 
 				Reason: toCompletionResult(message.StopReason),
 
-				Message: provider.Message{},
+				Message: &provider.Message{
+					Role: provider.MessageRoleAssistant,
+				},
 
 				Usage: &provider.Usage{
 					InputTokens:  int(message.Usage.InputTokens),
@@ -183,7 +185,7 @@ func (c *Completer) completeStream(ctx context.Context, req anthropic.MessageNew
 		ID:     message.ID,
 		Reason: toCompletionResult(message.StopReason),
 
-		Message: provider.Message{
+		Message: &provider.Message{
 			Role:    provider.MessageRoleAssistant,
 			Content: toContent(message.Content),
 

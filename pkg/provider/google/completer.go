@@ -120,7 +120,7 @@ func (c *Completer) complete(ctx context.Context, session *genai.ChatSession, pa
 		ID:     uuid.New().String(),
 		Reason: toCompletionResult(candidate),
 
-		Message: provider.Message{
+		Message: &provider.Message{
 			Role:    provider.MessageRoleAssistant,
 			Content: content,
 
@@ -135,7 +135,7 @@ func (c *Completer) completeStream(ctx context.Context, session *genai.ChatSessi
 	result := &provider.Completion{
 		ID: uuid.New().String(),
 
-		Message: provider.Message{
+		Message: &provider.Message{
 			Role: provider.MessageRoleAssistant,
 		},
 
@@ -179,7 +179,7 @@ func (c *Completer) completeStream(ctx context.Context, session *genai.ChatSessi
 
 				Reason: result.Reason,
 
-				Message: provider.Message{
+				Message: &provider.Message{
 					Role:    provider.MessageRoleAssistant,
 					Content: content,
 				},
