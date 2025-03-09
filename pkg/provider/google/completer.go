@@ -139,7 +139,7 @@ func (c *Completer) completeStream(ctx context.Context, session *genai.ChatSessi
 			Role: provider.MessageRoleAssistant,
 		},
 
-		//Usage: &provider.Usage{},
+		Usage: &provider.Usage{},
 	}
 
 	resultToolCalls := map[string]provider.ToolCall{}
@@ -153,6 +153,13 @@ func (c *Completer) completeStream(ctx context.Context, session *genai.ChatSessi
 
 		if err != nil {
 			return nil, convertError(err)
+		}
+
+		if resp.UsageMetadata != nil {
+			result.Usage = &provider.Usage{
+				InputTokens:  int(resp.UsageMetadata.PromptTokenCount),
+				OutputTokens: int(resp.UsageMetadata.CandidatesTokenCount),
+			}
 		}
 
 		candidate := resp.Candidates[0]
@@ -183,6 +190,13 @@ func (c *Completer) completeStream(ctx context.Context, session *genai.ChatSessi
 					Role:    provider.MessageRoleAssistant,
 					Content: content,
 				},
+			}
+
+			if resp.UsageMetadata != nil {
+				delta.Usage = &provider.Usage{
+					InputTokens:  int(resp.UsageMetadata.PromptTokenCount),
+					OutputTokens: int(resp.UsageMetadata.CandidatesTokenCount),
+				}
 			}
 
 			if err := options.Stream(ctx, delta); err != nil {

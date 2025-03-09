@@ -6,6 +6,7 @@ import (
 	"errors"
 	"io"
 	"slices"
+	"strings"
 
 	"github.com/adrianliechti/wingman/pkg/provider"
 
@@ -90,6 +91,8 @@ func (c *Completer) completeStream(ctx context.Context, req openai.ChatCompletio
 
 	result := openai.ChatCompletionAccumulator{}
 
+	var usage *openai.CompletionUsage
+
 	for stream.Next() {
 		chunk := stream.Current()
 		result.AddChunk(chunk)
@@ -114,6 +117,8 @@ func (c *Completer) completeStream(ctx context.Context, req openai.ChatCompletio
 		}
 
 		if chunk.Usage.TotalTokens > 0 {
+			usage = &chunk.Usage
+
 			delta.Usage = &provider.Usage{
 				InputTokens:  int(chunk.Usage.PromptTokens),
 				OutputTokens: int(chunk.Usage.CompletionTokens),
@@ -153,9 +158,13 @@ func (c *Completer) completeStream(ctx context.Context, req openai.ChatCompletio
 	}
 
 	if result.Usage.TotalTokens > 0 {
+		usage = &result.Usage
+	}
+
+	if usage != nil && usage.TotalTokens > 0 {
 		completion.Usage = &provider.Usage{
-			InputTokens:  int(result.Usage.PromptTokens),
-			OutputTokens: int(result.Usage.CompletionTokens),
+			InputTokens:  int(usage.PromptTokens),
+			OutputTokens: int(usage.CompletionTokens),
 		}
 	}
 
@@ -184,9 +193,11 @@ func (c *Completer) convertCompletionRequest(input []provider.Message, options *
 	}
 
 	if options.Stream != nil {
-		req.StreamOptions = openai.F(openai.ChatCompletionStreamOptionsParam{
-			IncludeUsage: openai.F(true),
-		})
+		if !strings.Contains(c.url, "api.mistral.ai") {
+			req.StreamOptions = openai.F(openai.ChatCompletionStreamOptionsParam{
+				IncludeUsage: openai.F(true),
+			})
+		}
 	}
 
 	if len(tools) > 0 {

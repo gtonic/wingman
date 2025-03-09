@@ -60,6 +60,7 @@ func (c *Completer) Complete(ctx context.Context, messages []provider.Message, o
 			StopSequences: req.StopSequences,
 			Temperature:   req.Temperature,
 		}
+
 		return c.completeStream(ctx, req, options)
 	}
 
@@ -114,7 +115,7 @@ func (c *Completer) completeStream(ctx context.Context, req *v2.V2ChatStreamRequ
 		}
 
 		if err != nil {
-			return nil, convertError(err)
+			continue
 		}
 
 		if resp.MessageStart != nil {
@@ -141,7 +142,6 @@ func (c *Completer) completeStream(ctx context.Context, req *v2.V2ChatStreamRequ
 					}
 				}
 			}
-
 		}
 
 		if resp.ContentDelta != nil {
@@ -187,6 +187,21 @@ func (c *Completer) completeStream(ctx context.Context, req *v2.V2ChatStreamRequ
 
 			if delta.Reason == "" {
 				delta.Reason = provider.CompletionReasonStop
+			}
+
+			if resp.MessageEnd.Delta != nil && resp.MessageEnd.Delta.Usage != nil && resp.MessageEnd.Delta.Usage.BilledUnits != nil {
+				usage := &provider.Usage{}
+
+				delta.Usage = usage
+				result.Usage = usage
+
+				if resp.MessageEnd.Delta.Usage.BilledUnits.InputTokens != nil {
+					usage.InputTokens = int(*resp.MessageEnd.Delta.Usage.BilledUnits.InputTokens)
+				}
+
+				if resp.MessageEnd.Delta.Usage.BilledUnits.OutputTokens != nil {
+					usage.OutputTokens = int(*resp.MessageEnd.Delta.Usage.BilledUnits.OutputTokens)
+				}
 			}
 
 			if err := options.Stream(ctx, delta); err != nil {
