@@ -9,16 +9,16 @@ import (
 )
 
 type Client struct {
-	Models *openai.ModelService
+	Models openai.ModelService
 
-	Embeddings  *openai.EmbeddingService
-	Completions *openai.ChatCompletionService
+	Embeddings  openai.EmbeddingService
+	Completions openai.ChatCompletionService
 
-	Segments    *SegmentService
-	Extractions *ExtractionService
+	Segments    SegmentService
+	Extractions ExtractionService
 
-	Documents *DocumentService
-	Summaries *SummaryService
+	Documents DocumentService
+	Summaries SummaryService
 }
 
 func New(url string, opts ...RequestOption) *Client {
