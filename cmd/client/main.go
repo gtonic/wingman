@@ -125,7 +125,14 @@ func chat(ctx context.Context, client *openai.Client, model string) {
 	reader := bufio.NewReader(os.Stdin)
 	output := os.Stdout
 
-	var messages []openai.ChatCompletionMessageParamUnion
+	param := openai.ChatCompletionNewParams{
+		Model:    openai.ChatModel(model),
+		Messages: []openai.ChatCompletionMessageParamUnion{},
+
+		StreamOptions: openai.ChatCompletionStreamOptionsParam{
+			IncludeUsage: openai.Bool(true),
+		},
+	}
 
 LOOP:
 	for {
@@ -141,7 +148,7 @@ LOOP:
 		if strings.HasPrefix(input, "/") {
 			switch strings.ToLower(input) {
 			case "/reset":
-				messages = nil
+				param.Messages = []openai.ChatCompletionMessageParamUnion{}
 				continue LOOP
 
 			default:
@@ -150,18 +157,11 @@ LOOP:
 			}
 		}
 
-		messages = append(messages, openai.UserMessage(input))
-
-		stream := client.Chat.Completions.NewStreaming(ctx, openai.ChatCompletionNewParams{
-			Model:    openai.ChatModel(model),
-			Messages: messages,
-
-			StreamOptions: openai.ChatCompletionStreamOptionsParam{
-				IncludeUsage: openai.Bool(true),
-			},
-		})
+		param.Messages = append(param.Messages, openai.UserMessage(input))
 
 		completion := openai.ChatCompletionAccumulator{}
+
+		stream := client.Chat.Completions.NewStreaming(ctx, param)
 
 		for stream.Next() {
 			chunk := stream.Current()
@@ -177,7 +177,7 @@ LOOP:
 			continue LOOP
 		}
 
-		messages = append(messages, completion.Choices[0].Message.ToParam())
+		param.Messages = append(param.Messages, completion.Choices[0].Message.ToParam())
 
 		output.WriteString("\n")
 		output.WriteString("\n")
