@@ -95,6 +95,8 @@ func (c *Completer) complete(ctx context.Context, req *bedrockruntime.ConverseIn
 			Content:   toContent(resp.Output),
 			ToolCalls: toToolCalls(resp.Output),
 		},
+
+		Usage: toUsage(resp.Usage),
 	}, nil
 }
 
@@ -105,30 +107,42 @@ func (c *Completer) completeStream(ctx context.Context, req *bedrockruntime.Conv
 		return nil, err
 	}
 
-	result := &provider.Completion{
-		ID: uuid.New().String(),
+	id := uuid.NewString()
 
-		Message: &provider.Message{
-			Role: provider.MessageRoleAssistant,
-		},
-
-		//Usage: &provider.Usage{},
-	}
+	result := provider.CompletionAccumulator{}
 
 	for event := range resp.GetStream().Events() {
 		switch v := event.(type) {
 		case *types.ConverseStreamOutputMemberMessageStart:
-			result.Message.Role = toRole(v.Value.Role)
+			delta := provider.Completion{
+				ID: id,
+
+				Message: &provider.Message{
+					Role: provider.MessageRoleAssistant,
+				},
+			}
+
+			result.Add(delta)
 
 		case *types.ConverseStreamOutputMemberContentBlockStart:
 			switch b := v.Value.Start.(type) {
 			case *types.ContentBlockStartMemberToolUse:
-				result.Message.ToolCalls = []provider.ToolCall{
-					{
-						ID:   aws.ToString(b.Value.ToolUseId),
-						Name: aws.ToString(b.Value.Name),
+				delta := provider.Completion{
+					ID: id,
+
+					Message: &provider.Message{
+						Role: provider.MessageRoleAssistant,
+
+						ToolCalls: []provider.ToolCall{
+							{
+								ID:   aws.ToString(b.Value.ToolUseId),
+								Name: aws.ToString(b.Value.Name),
+							},
+						},
 					},
 				}
+
+				result.Add(delta)
 
 			default:
 				fmt.Printf("unknown block type, %T\n", b)
@@ -137,50 +151,43 @@ func (c *Completer) completeStream(ctx context.Context, req *bedrockruntime.Conv
 		case *types.ConverseStreamOutputMemberContentBlockDelta:
 			switch b := v.Value.Delta.(type) {
 			case *types.ContentBlockDeltaMemberText:
-				content := b.Value
-				result.Message.Content += content
+				delta := provider.Completion{
+					ID: id,
 
-				if len(content) > 0 {
-					completion := provider.Completion{
-						ID: result.ID,
+					Message: &provider.Message{
+						Role: provider.MessageRoleAssistant,
 
-						Message: &provider.Message{
-							Role:    provider.MessageRoleAssistant,
-							Content: content,
+						Content: provider.MessageContent{
+							provider.TextContent(b.Value),
 						},
-					}
+					},
+				}
 
-					if err := options.Stream(ctx, completion); err != nil {
-						return nil, err
-					}
+				result.Add(delta)
+
+				if err := options.Stream(ctx, delta); err != nil {
+					return nil, err
 				}
 
 			case *types.ContentBlockDeltaMemberToolUse:
-				content := *b.Value.Input
+				delta := provider.Completion{
+					ID: id,
 
-				if len(result.Message.ToolCalls) > 0 {
-					index := len(result.Message.ToolCalls) - 1
-					result.Message.ToolCalls[index].Arguments += content
-				}
+					Message: &provider.Message{
+						Role: provider.MessageRoleAssistant,
 
-				if len(content) > 0 {
-					delta := provider.Completion{
-						ID: result.ID,
-
-						Message: &provider.Message{
-							Role: provider.MessageRoleAssistant,
-
-							ToolCalls: []provider.ToolCall{
-								{
-									Arguments: content,
-								},
+						ToolCalls: []provider.ToolCall{
+							{
+								Arguments: *b.Value.Input,
 							},
 						},
-					}
+					},
+				}
 
-					if err := options.Stream(ctx, delta); err != nil {
-						return nil, err
-					}
+				result.Add(delta)
+
+				if err := options.Stream(ctx, delta); err != nil {
+					return nil, err
 				}
 
 			default:
@@ -190,32 +197,45 @@ func (c *Completer) completeStream(ctx context.Context, req *bedrockruntime.Conv
 		case *types.ConverseStreamOutputMemberContentBlockStop:
 
 		case *types.ConverseStreamOutputMemberMessageStop:
-			if reason := toCompletionResult(v.Value.StopReason); reason != "" {
-				result.Reason = reason
-			}
-
 			delta := provider.Completion{
-				ID:     result.ID,
-				Reason: result.Reason,
+				ID: id,
+
+				Reason: toCompletionResult(v.Value.StopReason),
 
 				Message: &provider.Message{
-					Role:    provider.MessageRoleAssistant,
-					Content: "",
+					Role: provider.MessageRoleAssistant,
+
+					Content: provider.MessageContent{
+						provider.TextContent(""),
+					},
 				},
 			}
 
-			if delta.Reason == "" {
-				delta.Reason = provider.CompletionReasonStop
-			}
+			result.Add(delta)
 
 			if err := options.Stream(ctx, delta); err != nil {
 				return nil, err
 			}
 
 		case *types.ConverseStreamOutputMemberMetadata:
-			result.Usage = &provider.Usage{
-				InputTokens:  int(aws.ToInt32(v.Value.Usage.InputTokens)),
-				OutputTokens: int(aws.ToInt32(v.Value.Usage.OutputTokens)),
+			delta := provider.Completion{
+				ID: id,
+
+				Message: &provider.Message{
+					Role: provider.MessageRoleAssistant,
+
+					Content: provider.MessageContent{
+						provider.TextContent(""),
+					},
+				},
+
+				Usage: toUsage(v.Value.Usage),
+			}
+
+			result.Add(delta)
+
+			if err := options.Stream(ctx, delta); err != nil {
+				return nil, err
 			}
 
 		case *types.UnknownUnionMember:
@@ -226,11 +246,7 @@ func (c *Completer) completeStream(ctx context.Context, req *bedrockruntime.Conv
 		}
 	}
 
-	if result.Reason == "" {
-		result.Reason = provider.CompletionReasonStop
-	}
-
-	return result, nil
+	return result.Result(), nil
 }
 
 func (c *Completer) convertConverseInput(input []provider.Message, options *provider.CompleteOptions) (*bedrockruntime.ConverseInput, error) {
@@ -258,11 +274,17 @@ func convertSystem(messages []provider.Message) []types.SystemContentBlock {
 			continue
 		}
 
-		system := &types.SystemContentBlockMemberText{
-			Value: m.Content,
-		}
+		for _, c := range m.Content {
+			if c.Text == "" {
+				continue
+			}
 
-		result = append(result, system)
+			system := &types.SystemContentBlockMemberText{
+				Value: c.Text,
+			}
+
+			result = append(result, system)
+		}
 	}
 
 	if len(result) == 0 {
@@ -286,22 +308,24 @@ func convertMessages(messages []provider.Message) ([]types.Message, error) {
 				Role: types.ConversationRoleUser,
 			}
 
-			if m.Content != "" {
-				content := &types.ContentBlockMemberText{
-					Value: m.Content,
+			for _, c := range m.Content {
+				if c.Text != "" {
+					block := &types.ContentBlockMemberText{
+						Value: c.Text,
+					}
+
+					message.Content = append(message.Content, block)
 				}
 
-				message.Content = append(message.Content, content)
-			}
+				if c.File != nil {
+					block, err := convertFile(c.File)
 
-			for _, f := range m.Files {
-				content, err := convertFile(f)
+					if err != nil {
+						return nil, err
+					}
 
-				if err != nil {
-					return nil, err
+					message.Content = append(message.Content, block)
 				}
-
-				message.Content = append(message.Content, content)
 			}
 
 			result = append(result, message)
@@ -311,12 +335,14 @@ func convertMessages(messages []provider.Message) ([]types.Message, error) {
 				Role: types.ConversationRoleAssistant,
 			}
 
-			if m.Content != "" {
-				content := &types.ContentBlockMemberText{
-					Value: m.Content,
-				}
+			for _, c := range m.Content {
+				if c.Text != "" {
+					content := &types.ContentBlockMemberText{
+						Value: c.Text,
+					}
 
-				message.Content = append(message.Content, content)
+					message.Content = append(message.Content, content)
+				}
 			}
 
 			for _, t := range m.ToolCalls {
@@ -339,7 +365,7 @@ func convertMessages(messages []provider.Message) ([]types.Message, error) {
 
 		case provider.MessageRoleTool:
 			var data any
-			json.Unmarshal([]byte(m.Content), &data)
+			json.Unmarshal([]byte(m.Content.Text()), &data)
 
 			if reflect.TypeOf(data).Kind() != reflect.Map {
 				data = map[string]any{
@@ -401,7 +427,11 @@ func convertToolConfig(tools []provider.Tool) *types.ToolConfiguration {
 	return result
 }
 
-func convertFile(val provider.File) (types.ContentBlock, error) {
+func convertFile(val *provider.File) (types.ContentBlock, error) {
+	if val == nil {
+		return nil, nil
+	}
+
 	data, err := io.ReadAll(val.Content)
 
 	if err != nil {
@@ -543,25 +573,25 @@ func toRole(val types.ConversationRole) provider.MessageRole {
 	}
 }
 
-func toContent(val types.ConverseOutput) string {
+func toContent(val types.ConverseOutput) []provider.Content {
 	message, ok := val.(*types.ConverseOutputMemberMessage)
 
 	if !ok {
-		return ""
+		return nil
 	}
+
+	var parts []provider.Content
 
 	for _, b := range message.Value.Content {
 		switch block := b.(type) {
 		case *types.ContentBlockMemberText:
-			text := block.Value
-
-			if text != "" {
-				return text
-			}
+			parts = append(parts, provider.Content{
+				Text: block.Value,
+			})
 		}
 	}
 
-	return ""
+	return parts
 }
 
 func toToolCalls(val types.ConverseOutput) []provider.ToolCall {
@@ -594,4 +624,15 @@ func toToolCalls(val types.ConverseOutput) []provider.ToolCall {
 	}
 
 	return result
+}
+
+func toUsage(val *types.TokenUsage) *provider.Usage {
+	if val == nil {
+		return nil
+	}
+
+	return &provider.Usage{
+		InputTokens:  int(aws.ToInt32(val.InputTokens)),
+		OutputTokens: int(aws.ToInt32(val.OutputTokens)),
+	}
 }

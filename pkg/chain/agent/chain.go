@@ -11,6 +11,8 @@ import (
 	"github.com/adrianliechti/wingman/pkg/template"
 	"github.com/adrianliechti/wingman/pkg/to"
 	"github.com/adrianliechti/wingman/pkg/tool"
+
+	"github.com/google/uuid"
 )
 
 var _ chain.Provider = &Chain{}
@@ -134,9 +136,12 @@ func (c *Chain) Complete(ctx context.Context, messages []provider.Message, optio
 	var lastToolCallID string
 	var lastToolCallName string
 
+	streamID := uuid.New().String()
 	streamToolCalls := map[string]provider.ToolCall{}
 
 	stream := func(ctx context.Context, completion provider.Completion) error {
+		completion.ID = streamID
+
 		for _, t := range completion.Message.ToolCalls {
 			if t.ID != "" {
 				lastToolCallID = t.ID
@@ -160,7 +165,7 @@ func (c *Chain) Complete(ctx context.Context, messages []provider.Message, optio
 			}
 		}
 
-		if completion.Message.Content != "" || completion.Reason != "" {
+		if completion.Message.Content != nil || completion.Reason != "" {
 			completion.Message.ToolCalls = to.Values(streamToolCalls)
 
 			return options.Stream(ctx, completion)
@@ -179,6 +184,8 @@ func (c *Chain) Complete(ctx context.Context, messages []provider.Message, optio
 		if err != nil {
 			return nil, err
 		}
+
+		completion.ID = streamID
 
 		if completion.Message == nil {
 			result = completion
@@ -214,12 +221,7 @@ func (c *Chain) Complete(ctx context.Context, messages []provider.Message, optio
 				return nil, err
 			}
 
-			input = append(input, provider.Message{
-				Role: provider.MessageRoleTool,
-
-				Tool:    t.ID,
-				Content: string(data),
-			})
+			input = append(input, provider.ToolMessage(t.ID, string(data)))
 
 			loop = true
 		}
