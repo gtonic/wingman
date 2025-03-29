@@ -12,17 +12,14 @@ type Completer interface {
 type Message struct {
 	Role MessageRole
 
-	Content MessageContent
-
-	Tool      string
-	ToolCalls []ToolCall
+	Content []Content
 }
 
 func SystemMessage(text string) Message {
 	return Message{
 		Role: MessageRoleSystem,
 
-		Content: MessageContent{
+		Content: []Content{
 			{
 				Text: text,
 			},
@@ -34,7 +31,7 @@ func UserMessage(text string) Message {
 	return Message{
 		Role: MessageRoleUser,
 
-		Content: MessageContent{
+		Content: []Content{
 			{
 				Text: text,
 			},
@@ -46,7 +43,7 @@ func AssistantMessage(content string) Message {
 	return Message{
 		Role: MessageRoleAssistant,
 
-		Content: MessageContent{
+		Content: []Content{
 			{
 				Text: content,
 			},
@@ -54,44 +51,38 @@ func AssistantMessage(content string) Message {
 	}
 }
 
-func ToolMessage(id string, content string) Message {
-	return Message{
-		Role: MessageRoleTool,
-
-		Tool: id,
-
-		Content: MessageContent{
-			{
-				Text: content,
-			},
-		},
-	}
-}
-
-type MessageContent []Content
-
-func (c MessageContent) Text() string {
+func (m Message) Text() string {
 	var parts []string
 
-	for _, content := range c {
-		if content.Text != "" {
-			parts = append(parts, content.Text)
+	for _, c := range m.Content {
+		if c.Text != "" {
+			parts = append(parts, c.Text)
 		}
 	}
 
 	return strings.Join(parts, "\n\n")
 }
 
-func (c MessageContent) Refusal() string {
+func (m Message) Refusal() string {
 	var parts []string
 
-	for _, content := range c {
-		if content.Refusal != "" {
-			parts = append(parts, content.Refusal)
+	for _, c := range m.Content {
+		if c.Refusal != "" {
+			parts = append(parts, c.Refusal)
 		}
 	}
 
 	return strings.Join(parts, "\n\n")
+}
+
+func (m Message) ToolResult() (id string, data string, ok bool) {
+	for _, c := range m.Content {
+		if c.ToolResult != nil {
+			return c.ToolResult.ID, c.ToolResult.Data, true
+		}
+	}
+
+	return "", "", false
 }
 
 type CompletionAccumulator struct {
@@ -130,22 +121,22 @@ func (a *CompletionAccumulator) Add(c Completion) {
 			if c.Refusal != "" {
 				a.refusal.WriteString(c.Refusal)
 			}
-		}
 
-		for _, c := range c.Message.ToolCalls {
-			if c.ID != "" {
-				a.toolCalls = append(a.toolCalls, ToolCall{
-					ID: c.ID,
-				})
+			if c.ToolCall != nil {
+				if c.ToolCall.ID != "" {
+					a.toolCalls = append(a.toolCalls, ToolCall{
+						ID: c.ToolCall.ID,
+					})
+				}
+
+				if len(a.toolCalls) == 0 {
+					// TODO: Error Handling
+					continue
+				}
+
+				a.toolCalls[len(a.toolCalls)-1].Name += c.ToolCall.Name
+				a.toolCalls[len(a.toolCalls)-1].Arguments += c.ToolCall.Arguments
 			}
-
-			if len(a.toolCalls) == 0 {
-				// TODO: Error Handling
-				continue
-			}
-
-			a.toolCalls[len(a.toolCalls)-1].Name += c.Name
-			a.toolCalls[len(a.toolCalls)-1].Arguments += c.Arguments
 		}
 	}
 
@@ -160,7 +151,7 @@ func (a *CompletionAccumulator) Add(c Completion) {
 }
 
 func (a *CompletionAccumulator) Result() *Completion {
-	var content MessageContent
+	var content []Content
 
 	if a.content.Len() > 0 {
 		content = append(content, TextContent(a.content.String()))
@@ -168,6 +159,10 @@ func (a *CompletionAccumulator) Result() *Completion {
 
 	if a.refusal.Len() > 0 {
 		content = append(content, RefusalContent(a.refusal.String()))
+	}
+
+	for _, call := range a.toolCalls {
+		content = append(content, ToolCallContent(call))
 	}
 
 	return &Completion{
@@ -178,8 +173,6 @@ func (a *CompletionAccumulator) Result() *Completion {
 		Message: &Message{
 			Role:    a.Role,
 			Content: content,
-
-			ToolCalls: a.toolCalls,
 		},
 
 		Usage: a.usage,
@@ -204,11 +197,26 @@ func FileContent(val *File) Content {
 	}
 }
 
+func ToolCallContent(val ToolCall) Content {
+	return Content{
+		ToolCall: &val,
+	}
+}
+
+func ToolResultContent(val ToolResult) Content {
+	return Content{
+		ToolResult: &val,
+	}
+}
+
 type Content struct {
 	Text    string
 	Refusal string
 
 	File *File
+
+	ToolCall   *ToolCall
+	ToolResult *ToolResult
 }
 
 type MessageRole string
@@ -217,7 +225,6 @@ const (
 	MessageRoleSystem    MessageRole = "system"
 	MessageRoleUser      MessageRole = "user"
 	MessageRoleAssistant MessageRole = "assistant"
-	MessageRoleTool      MessageRole = "tool"
 )
 
 type ToolCall struct {
