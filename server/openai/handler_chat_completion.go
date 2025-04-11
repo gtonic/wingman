@@ -99,7 +99,13 @@ func (h *Handler) handleChatCompletion(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Cache-Control", "no-cache")
 		w.Header().Set("Connection", "keep-alive")
 
+		var reason provider.CompletionReason
+
 		options.Stream = func(ctx context.Context, completion provider.Completion) error {
+			if completion.Usage != nil && (completion.Message == nil || len(completion.Message.Content) == 0) {
+				return nil
+			}
+
 			result := ChatCompletion{
 				Object: "chat.completion.chunk",
 
@@ -128,8 +134,8 @@ func (h *Handler) handleChatCompletion(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 
-			if completion.Message == nil {
-				return nil
+			if completion.Reason != "" {
+				reason = completion.Reason
 			}
 
 			return writeEventData(w, result)
@@ -142,7 +148,36 @@ func (h *Handler) handleChatCompletion(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		if completion.Usage != nil && req.StreamOptions != nil && req.StreamOptions.IncludeUsage != nil && *req.StreamOptions.IncludeUsage {
+		if reason == "" {
+			reason = completion.Reason
+
+			if reason == "" {
+				reason = provider.CompletionReasonStop
+			}
+
+			result := ChatCompletion{
+				Object: "chat.completion.chunk",
+
+				ID: completion.ID,
+
+				Model:   req.Model,
+				Created: time.Now().Unix(),
+
+				Choices: []ChatCompletionChoice{
+					{
+						Delta: &ChatCompletionMessage{
+							Role: oaiMessageRole(completion.Message.Role),
+						},
+
+						FinishReason: oaiFinishReason(reason),
+					},
+				},
+			}
+
+			writeEventData(w, result)
+		}
+
+		if streamUsage(req) && completion.Usage != nil {
 			result := ChatCompletion{
 				Object: "chat.completion.chunk",
 
@@ -210,6 +245,18 @@ func (h *Handler) handleChatCompletion(w http.ResponseWriter, r *http.Request) {
 
 		writeJson(w, result)
 	}
+}
+
+func streamUsage(req ChatCompletionRequest) bool {
+	if req.StreamOptions == nil {
+		return false
+	}
+
+	if req.StreamOptions.IncludeUsage == nil {
+		return false
+	}
+
+	return *req.StreamOptions.IncludeUsage
 }
 
 func toMessages(s []ChatCompletionMessage) ([]provider.Message, error) {
