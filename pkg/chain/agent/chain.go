@@ -4,12 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"maps"
 	"slices"
 
 	"github.com/adrianliechti/wingman/pkg/chain"
 	"github.com/adrianliechti/wingman/pkg/provider"
 	"github.com/adrianliechti/wingman/pkg/template"
-	"github.com/adrianliechti/wingman/pkg/to"
 	"github.com/adrianliechti/wingman/pkg/tool"
 
 	"github.com/google/uuid"
@@ -122,7 +122,7 @@ func (c *Chain) Complete(ctx context.Context, messages []provider.Message, optio
 		Effort: options.Effort,
 
 		Stop:  options.Stop,
-		Tools: to.Values(inputTools),
+		Tools: slices.Collect(maps.Values(inputTools)),
 
 		MaxTokens:   options.MaxTokens,
 		Temperature: options.Temperature,
@@ -148,6 +148,8 @@ func (c *Chain) Complete(ctx context.Context, messages []provider.Message, optio
 			Message: &provider.Message{
 				Role: provider.MessageRoleAssistant,
 			},
+
+			Usage: completion.Usage,
 		}
 
 		for _, c := range completion.Message.Content {
@@ -183,11 +185,7 @@ func (c *Chain) Complete(ctx context.Context, messages []provider.Message, optio
 			}
 		}
 
-		if len(delta.Message.Content) > 0 {
-			return options.Stream(ctx, delta)
-		}
-
-		return nil
+		return options.Stream(ctx, delta)
 	}
 
 	if options.Stream != nil {
