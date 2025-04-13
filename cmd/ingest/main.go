@@ -159,7 +159,8 @@ func IndexDir(ctx context.Context, c *client.Client, index, root string) error {
 			}
 
 			segments, err := c.Segments.New(ctx, client.SegmentRequest{
-				Text: text,
+				Name:   "content.txt",
+				Reader: strings.NewReader(text),
 
 				SegmentLength:  to.Ptr(3000),
 				SegmentOverlap: to.Ptr(1500),
