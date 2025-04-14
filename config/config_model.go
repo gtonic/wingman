@@ -145,8 +145,8 @@ func DetectModelType(id string) ModelType {
 	}
 
 	transcribers := []string{
-		"whisper",
 		"transcribe",
+		"whisper",
 	}
 
 	for _, val := range synthesizers {
