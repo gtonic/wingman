@@ -11,6 +11,14 @@ import (
 	"github.com/adrianliechti/wingman/pkg/provider"
 )
 
+func valueURL(r *http.Request) string {
+	if val := r.FormValue("url"); val != "" {
+		return val
+	}
+
+	return ""
+}
+
 func valueModel(r *http.Request) string {
 	if val := r.FormValue("model"); val != "" {
 		return val
@@ -19,8 +27,12 @@ func valueModel(r *http.Request) string {
 	return ""
 }
 
-func valueURL(r *http.Request) string {
-	if val := r.FormValue("url"); val != "" {
+func valueLanguage(r *http.Request) string {
+	if val := r.FormValue("lang"); val != "" {
+		return val
+	}
+
+	if val := r.FormValue("language"); val != "" {
 		return val
 	}
 
@@ -57,19 +69,11 @@ func valueSchema(r *http.Request) (*provider.Schema, error) {
 	}, nil
 }
 
-func valueLanguage(r *http.Request) string {
-	if val := r.FormValue("lang"); val != "" {
-		return val
-	}
-
-	if val := r.FormValue("language"); val != "" {
-		return val
-	}
-
-	return ""
-}
-
 func (h *Handler) readText(r *http.Request) (string, error) {
+	if val := r.FormValue("text"); val != "" {
+		return val, nil
+	}
+
 	_, reader, err := h.readContent(r)
 
 	if err != nil {

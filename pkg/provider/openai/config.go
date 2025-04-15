@@ -38,7 +38,7 @@ func (c *Config) Options() []option.RequestOption {
 
 	c.url = strings.TrimRight(c.url, "/") + "/"
 
-	if strings.Contains(c.url, "openai.azure.com") {
+	if strings.Contains(c.url, "openai.azure.com") || strings.Contains(c.url, "cognitiveservices.azure.com") {
 		options := make([]option.RequestOption, 0)
 
 		options = append(options, azure.WithEndpoint(c.url, "2025-01-01-preview"))
