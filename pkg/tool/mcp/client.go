@@ -8,6 +8,7 @@ import (
 	"github.com/adrianliechti/wingman/pkg/tool"
 
 	"github.com/mark3labs/mcp-go/client"
+	"github.com/mark3labs/mcp-go/client/transport"
 	"github.com/mark3labs/mcp-go/mcp"
 )
 
@@ -32,10 +33,10 @@ func NewStdio(command string, env, args []string) (*Client, error) {
 }
 
 func NewSSE(url string, headers map[string]string) (*Client, error) {
-	var options []client.ClientOption
+	var options []transport.ClientOption
 
 	if len(headers) > 0 {
-		options = append(options, client.WithHeaders(headers))
+		options = append(options, transport.WithHeaders(headers))
 	}
 
 	client, err := client.NewSSEMCPClient(url, options...)
