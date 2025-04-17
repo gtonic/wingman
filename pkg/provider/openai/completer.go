@@ -242,7 +242,16 @@ func (c *Completer) convertCompletionRequest(input []provider.Message, options *
 	}
 
 	if options.MaxTokens != nil {
-		if slices.Contains([]string{"o1", "o1-mini", "o3-mini"}, c.model) {
+		models := []string{
+			"o1",
+			"o1-mini",
+			"o3",
+			"o3-mini",
+			"o4",
+			"o4-mini",
+		}
+
+		if slices.Contains(models, c.model) {
 			req.MaxCompletionTokens = openai.Int(int64(*options.MaxTokens))
 		} else {
 			req.MaxTokens = openai.Int(int64(*options.MaxTokens))
