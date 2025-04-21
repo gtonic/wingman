@@ -105,8 +105,8 @@ func (t *Transcriber) Transcribe(ctx context.Context, input provider.File, optio
 
 		Text: content,
 
-		Language: inference.Language,
-		Duration: inference.Duration,
+		// Language: inference.Language,
+		// Duration: inference.Duration,
 	}
 
 	return &result, nil

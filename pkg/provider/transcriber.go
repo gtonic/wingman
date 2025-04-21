@@ -18,6 +18,6 @@ type Transcription struct {
 
 	Text string
 
-	Language string
-	Duration float64
+	// Language string
+	// Duration float64
 }

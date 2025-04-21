@@ -55,8 +55,8 @@ func (h *Handler) handleAudioTranscription(w http.ResponseWriter, r *http.Reques
 	result := Transcription{
 		Task: "transcribe",
 
-		Language: transcription.Language,
-		Duration: transcription.Duration,
+		// Language: transcription.Language,
+		// Duration: transcription.Duration,
 
 		Text: transcription.Text,
 	}
