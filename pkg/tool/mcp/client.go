@@ -85,7 +85,6 @@ func (c *Client) Tools(ctx context.Context) ([]tool.Tool, error) {
 				"properties":           map[string]any{},
 				"additionalProperties": false,
 			}
-
 		}
 
 		tool := tool.Tool{
