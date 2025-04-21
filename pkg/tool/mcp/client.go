@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"strings"
 
 	"github.com/adrianliechti/wingman/pkg/tool"
 
@@ -15,7 +16,7 @@ import (
 var _ tool.Provider = (*Client)(nil)
 
 type Client struct {
-	client client.MCPClient
+	client *client.Client
 
 	serverInfo *mcp.Implementation
 }
@@ -78,6 +79,15 @@ func (c *Client) Tools(ctx context.Context) ([]tool.Tool, error) {
 			return nil, err
 		}
 
+		if len(t.InputSchema.Properties) == 0 {
+			schema = map[string]any{
+				"type":                 "object",
+				"properties":           map[string]any{},
+				"additionalProperties": false,
+			}
+
+		}
+
 		tool := tool.Tool{
 			Name:        t.Name,
 			Description: t.Description,
@@ -96,12 +106,7 @@ func (c *Client) Execute(ctx context.Context, name string, parameters map[string
 		return nil, err
 	}
 
-	req := mcp.CallToolRequest{
-		Request: mcp.Request{
-			Method: "tools/call",
-		},
-	}
-
+	req := mcp.CallToolRequest{}
 	req.Params.Name = name
 	req.Params.Arguments = parameters
 
@@ -118,9 +123,12 @@ func (c *Client) Execute(ctx context.Context, name string, parameters map[string
 	for _, content := range resp.Content {
 		switch content := content.(type) {
 		case mcp.TextContent:
-			return content.Text, nil
+			text := strings.TrimSpace(content.Text)
+			return text, nil
+
 		case mcp.ImageContent:
 			return nil, errors.New("image content not supported")
+
 		case mcp.EmbeddedResource:
 			return nil, errors.New("embedded resource not supported")
 		default:
@@ -136,10 +144,12 @@ func (c *Client) ensureInit(ctx context.Context) error {
 		return nil
 	}
 
+	if err := c.client.Start(ctx); err != nil {
+		return err
+	}
+
 	req := mcp.InitializeRequest{}
-
 	req.Params.ProtocolVersion = mcp.LATEST_PROTOCOL_VERSION
-
 	req.Params.ClientInfo = mcp.Implementation{
 		Name:    "wingman",
 		Version: "1.0.0",
