@@ -131,12 +131,7 @@ DOCUMENTS:
 	})
 
 	if options.Limit != nil {
-		limit := *options.Limit
-
-		if limit > len(results) {
-			limit = len(results)
-		}
-
+		limit := min(*options.Limit, len(results))
 		results = results[:limit]
 	}
 
@@ -148,24 +143,21 @@ func cosineSimilarity(a []float32, b []float32) float32 {
 		return 0.0
 	}
 
-	dotproduct := 0.0
+	var dot, magA, magB float64
 
-	magnitudeA := 0.0
-	magnitudeB := 0.0
+	for i := range a {
+		valA := float64(a[i])
+		valB := float64(b[i])
 
-	for k := 0; k < len(a); k++ {
-		valA := float64(a[k])
-		valB := float64(b[k])
+		dot += valA * valB
 
-		dotproduct += valA * valB
-
-		magnitudeA += math.Pow(valA, 2)
-		magnitudeB += math.Pow(valB, 2)
+		magA += valA * valA
+		magB += valB * valB
 	}
 
-	if magnitudeA == 0 || magnitudeB == 0 {
+	if magA == 0 || magB == 0 {
 		return 0.0
 	}
 
-	return float32(dotproduct / (math.Sqrt(magnitudeA) * math.Sqrt(magnitudeB)))
+	return float32(dot / math.Sqrt(magA*magB))
 }
