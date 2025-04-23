@@ -13,7 +13,7 @@ require (
 	github.com/go-chi/cors v1.2.1
 	github.com/google/generative-ai-go v0.19.0
 	github.com/google/uuid v1.6.0
-	github.com/mark3labs/mcp-go v0.23.0
+	github.com/mark3labs/mcp-go v0.23.1
 	github.com/openai/openai-go v0.1.0-beta.10
 	github.com/replicate/replicate-go v0.26.0
 	github.com/stretchr/testify v1.10.0
@@ -30,7 +30,7 @@ require (
 	go.opentelemetry.io/otel/sdk/log v0.11.0
 	go.opentelemetry.io/otel/sdk/metric v1.35.0
 	golang.org/x/time v0.11.0
-	google.golang.org/api v0.229.0
+	google.golang.org/api v0.230.0
 	google.golang.org/grpc v1.72.0
 	google.golang.org/protobuf v1.36.6
 	gopkg.in/yaml.v3 v3.0.1
