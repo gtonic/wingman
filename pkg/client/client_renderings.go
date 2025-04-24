@@ -19,12 +19,6 @@ func NewRenderingService(opts ...RequestOption) RenderingService {
 }
 
 type Image = provider.Image
-type ImageStyle = provider.ImageStyle
-
-const (
-	ImageStyleNatural ImageStyle = "natural"
-	ImageStyleVivid   ImageStyle = "vivid"
-)
 
 type RenderOptions = provider.RenderOptions
 

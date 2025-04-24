@@ -45,16 +45,6 @@ func (c *Client) Tools(ctx context.Context) ([]tool.Tool, error) {
 						"type":        "string",
 						"description": "detailed text description of the image to generate. must be english.",
 					},
-
-					"style": map[string]any{
-						"type":        "string",
-						"description": "style of the image. defaults to vivid.",
-
-						"enum": []string{
-							"vivid",
-							"natural",
-						},
-					},
 				},
 
 				"required": []string{"prompt"},
@@ -74,19 +64,7 @@ func (c *Client) Execute(ctx context.Context, name string, parameters map[string
 		return nil, errors.New("missing prompt parameter")
 	}
 
-	options := &provider.RenderOptions{
-		Style: provider.ImageStyleVivid,
-	}
-
-	if style, ok := parameters["style"].(string); ok {
-		if style == "vivid" {
-			options.Style = provider.ImageStyleVivid
-		}
-
-		if style == "natural" {
-			options.Style = provider.ImageStyleNatural
-		}
-	}
+	options := &provider.RenderOptions{}
 
 	image, err := c.provider.Render(ctx, prompt, options)
 
@@ -95,7 +73,6 @@ func (c *Client) Execute(ctx context.Context, name string, parameters map[string
 	}
 
 	path := uuid.New().String() + ".png"
-
 	os.MkdirAll(filepath.Join("public", "files"), 0755)
 
 	f, err := os.Create(filepath.Join("public", "files", path))

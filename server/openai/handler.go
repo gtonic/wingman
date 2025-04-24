@@ -40,6 +40,7 @@ func (h *Handler) Attach(r chi.Router) {
 	r.Post("/audio/transcriptions", h.handleAudioTranscription)
 
 	r.Post("/images/generations", h.handleImageGeneration)
+	//r.Post("/images/edits", h.handleImageEdit)
 }
 
 func writeJson(w http.ResponseWriter, v any) {

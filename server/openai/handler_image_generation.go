@@ -26,9 +26,7 @@ func (h *Handler) handleImageGeneration(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	options := &provider.RenderOptions{
-		Style: toImageStyle(req.Style),
-	}
+	options := &provider.RenderOptions{}
 
 	image, err := renderer.Render(r.Context(), req.Prompt, options)
 
@@ -46,14 +44,7 @@ func (h *Handler) handleImageGeneration(w http.ResponseWriter, r *http.Request) 
 
 	result := ImageList{}
 
-	if req.ResponseFormat == "b64_json" {
-		result.Images = []Image{
-			{
-				B64JSON: base64.StdEncoding.EncodeToString(data),
-			},
-		}
-
-	} else {
+	if req.ResponseFormat == "url" {
 		mime := mime.TypeByExtension(path.Ext(image.Name))
 
 		if mime == "" {
@@ -65,19 +56,14 @@ func (h *Handler) handleImageGeneration(w http.ResponseWriter, r *http.Request) 
 				URL: "data:" + mime + ";base64," + base64.StdEncoding.EncodeToString(data),
 			},
 		}
+	} else {
+		result.Images = []Image{
+			{
+				B64JSON: base64.StdEncoding.EncodeToString(data),
+			},
+		}
+
 	}
 
 	writeJson(w, result)
-}
-
-func toImageStyle(style ImageStyle) provider.ImageStyle {
-	switch style {
-	case ImageStyleVivid:
-		return provider.ImageStyleVivid
-
-	case ImageStyleNatural:
-		return provider.ImageStyleNatural
-	}
-
-	return ""
 }

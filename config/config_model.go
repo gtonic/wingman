@@ -134,6 +134,7 @@ func DetectModelType(id string) ModelType {
 		"flux.1-dev",
 		"flux.1-pro",
 		"flux.1-schnell",
+		"gpt-image",
 		"sd-turbo",
 		"sdxl-turbo",
 		"stable-diffusion",

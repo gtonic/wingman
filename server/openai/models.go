@@ -363,19 +363,10 @@ type Transcription struct {
 	Text string `json:"text"`
 }
 
-type ImageStyle string
-
-const (
-	ImageStyleNatural ImageStyle = "natural"
-	ImageStyleVivid   ImageStyle = "vivid"
-)
-
 // https://platform.openai.com/docs/api-reference/images/create
 type ImageCreateRequest struct {
-	Model string `json:"model"`
-
-	Prompt string     `json:"prompt"`
-	Style  ImageStyle `json:"style,omitempty"`
+	Model  string `json:"model"`
+	Prompt string `json:"prompt"`
 
 	ResponseFormat string `json:"response_format,omitempty"`
 }

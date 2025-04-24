@@ -5,7 +5,11 @@ import (
 	"context"
 	"encoding/base64"
 	"errors"
+	"fmt"
 	"io"
+	"net/http"
+	"regexp"
+	"strings"
 
 	"github.com/adrianliechti/wingman/pkg/provider"
 	"github.com/google/uuid"
@@ -41,22 +45,19 @@ func (r *Renderer) Render(ctx context.Context, input string, options *provider.R
 		options = new(provider.RenderOptions)
 	}
 
-	req, err := r.convertImageGenerateRequest(input, options)
-
-	if err != nil {
-		return nil, err
-	}
-
-	image, err := r.images.Generate(ctx, *req)
+	image, err := r.images.Generate(ctx, openai.ImageGenerateParams{
+		Model:  r.model,
+		Prompt: input,
+	})
 
 	if err != nil {
 		return nil, convertError(err)
 	}
 
-	data, err := base64.StdEncoding.DecodeString(image.Data[0].B64JSON)
+	data, err := r.getData(ctx, image.Data[0])
 
 	if err != nil {
-		return nil, errors.New("invalid image data")
+		return nil, err
 	}
 
 	id := uuid.NewString()
@@ -69,25 +70,40 @@ func (r *Renderer) Render(ctx context.Context, input string, options *provider.R
 	}, nil
 }
 
-func (r *Renderer) convertImageGenerateRequest(input string, options *provider.RenderOptions) (*openai.ImageGenerateParams, error) {
-	if options == nil {
-		options = new(provider.RenderOptions)
+func (r *Renderer) getData(ctx context.Context, image openai.Image) ([]byte, error) {
+	if image.URL != "" {
+		if strings.HasPrefix(image.URL, "data:") {
+			re := regexp.MustCompile(`data:([a-zA-Z]+\/[a-zA-Z0-9.+_-]+);base64,\s*(.+)`)
+
+			match := re.FindStringSubmatch(image.URL)
+
+			if len(match) != 3 {
+				return nil, fmt.Errorf("invalid data url")
+			}
+
+			return base64.StdEncoding.DecodeString(match[2])
+		}
+
+		req, err := http.NewRequestWithContext(ctx, "GET", image.URL, nil)
+
+		if err != nil {
+			return nil, err
+		}
+
+		resp, err := r.client.Do(req)
+
+		if err != nil {
+			return nil, err
+		}
+
+		defer resp.Body.Close()
+
+		return io.ReadAll(resp.Body)
 	}
 
-	req := &openai.ImageGenerateParams{
-		Model:  r.model,
-		Prompt: input,
-
-		ResponseFormat: openai.ImageGenerateParamsResponseFormatB64JSON,
+	if image.B64JSON != "" {
+		return base64.StdEncoding.DecodeString(image.B64JSON)
 	}
 
-	if options.Style == provider.ImageStyleNatural {
-		req.Style = openai.ImageGenerateParamsStyleNatural
-	}
-
-	if options.Style == provider.ImageStyleVivid {
-		req.Style = openai.ImageGenerateParamsStyleVivid
-	}
-
-	return req, nil
+	return nil, errors.New("invalid image data")
 }

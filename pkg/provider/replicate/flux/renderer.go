@@ -140,10 +140,6 @@ func (r *Renderer) convertInput(prompt string, options *provider.RenderOptions) 
 			"safety_tolerance": 6,
 		}
 
-		if options.Style == provider.ImageStyleNatural {
-			input["raw"] = true
-		}
-
 		return input, nil
 	}
 
