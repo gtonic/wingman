@@ -10,6 +10,7 @@ type Renderer interface {
 }
 
 type RenderOptions struct {
+	Images []File
 }
 
 type Image struct {

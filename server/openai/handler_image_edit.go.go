@@ -1,84 +1,84 @@
 package openai
 
-// import (
-// 	"encoding/base64"
-// 	"io"
-// 	"mime"
-// 	"net/http"
-// 	"path"
+import (
+	"encoding/base64"
+	"io"
+	"mime"
+	"net/http"
+	"path"
 
-// 	"github.com/adrianliechti/wingman/pkg/provider"
-// )
+	"github.com/adrianliechti/wingman/pkg/provider"
+)
 
-// func (h *Handler) handleImageEdit(w http.ResponseWriter, r *http.Request) {
-// 	if err := r.ParseMultipartForm(32 << 20); err != nil {
-// 		writeError(w, http.StatusBadRequest, err)
-// 		return
-// 	}
+func (h *Handler) handleImageEdit(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseMultipartForm(32 << 20); err != nil {
+		writeError(w, http.StatusBadRequest, err)
+		return
+	}
 
-// 	model := r.FormValue("model")
-// 	prompt := r.FormValue("prompt")
+	model := r.FormValue("model")
+	prompt := r.FormValue("prompt")
 
-// 	reader, header, err := r.FormFile("image[]")
+	reader, header, err := r.FormFile("image")
 
-// 	if err != nil {
-// 		reader, header, err = r.FormFile("image")
-// 	}
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err)
+		return
+	}
 
-// 	if err != nil {
-// 		writeError(w, http.StatusBadRequest, err)
-// 		return
-// 	}
+	renderer, err := h.Renderer(model)
 
-// 	renderer, err := h.Renderer(model)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err)
+		return
+	}
 
-// 	if err != nil {
-// 		writeError(w, http.StatusBadRequest, err)
-// 		return
-// 	}
+	options := &provider.RenderOptions{
+		Images: []provider.File{
+			{
+				Name: header.Filename,
 
-// 	options := &provider.RenderOptions{
-// 		Image: &provider.Image{
-// 			Name:   header.Filename,
-// 			Reader: reader,
-// 		},
-// 	}
+				Content:     reader,
+				ContentType: header.Header.Get("Content-Type"),
+			},
+		},
+	}
 
-// 	image, err := renderer.Render(r.Context(), prompt, options)
+	image, err := renderer.Render(r.Context(), prompt, options)
 
-// 	if err != nil {
-// 		writeError(w, http.StatusBadRequest, err)
-// 		return
-// 	}
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err)
+		return
+	}
 
-// 	data, err := io.ReadAll(image.Reader)
+	data, err := io.ReadAll(image.Reader)
 
-// 	if err != nil {
-// 		writeError(w, http.StatusBadRequest, err)
-// 		return
-// 	}
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err)
+		return
+	}
 
-// 	result := ImageList{}
+	result := ImageList{}
 
-// 	if r.FormValue("response_format") == "url" {
-// 		mime := mime.TypeByExtension(path.Ext(image.Name))
+	if r.FormValue("response_format") == "url" {
+		mime := mime.TypeByExtension(path.Ext(image.Name))
 
-// 		if mime == "" {
-// 			mime = "image/png"
-// 		}
+		if mime == "" {
+			mime = "image/png"
+		}
 
-// 		result.Images = []Image{
-// 			{
-// 				URL: "data:" + mime + ";base64," + base64.StdEncoding.EncodeToString(data),
-// 			},
-// 		}
-// 	} else {
-// 		result.Images = []Image{
-// 			{
-// 				B64JSON: base64.StdEncoding.EncodeToString(data),
-// 			},
-// 		}
-// 	}
+		result.Images = []Image{
+			{
+				URL: "data:" + mime + ";base64," + base64.StdEncoding.EncodeToString(data),
+			},
+		}
+	} else {
+		result.Images = []Image{
+			{
+				B64JSON: base64.StdEncoding.EncodeToString(data),
+			},
+		}
+	}
 
-// 	writeJson(w, result)
-// }
+	writeJson(w, result)
+}

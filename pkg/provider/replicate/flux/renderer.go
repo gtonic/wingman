@@ -60,6 +60,10 @@ func (r *Renderer) Render(ctx context.Context, prompt string, options *provider.
 		options = new(provider.RenderOptions)
 	}
 
+	if len(options.Images) > 0 {
+		return nil, errors.New("image input not supported")
+	}
+
 	input, err := r.convertInput(prompt, options)
 
 	if err != nil {

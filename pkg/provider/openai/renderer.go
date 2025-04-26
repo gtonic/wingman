@@ -4,10 +4,14 @@ import (
 	"bytes"
 	"context"
 	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
+	"mime/multipart"
 	"net/http"
+	"net/textproto"
+	"path"
 	"regexp"
 	"strings"
 
@@ -45,29 +49,115 @@ func (r *Renderer) Render(ctx context.Context, input string, options *provider.R
 		options = new(provider.RenderOptions)
 	}
 
-	image, err := r.images.Generate(ctx, openai.ImageGenerateParams{
-		Model:  r.model,
-		Prompt: input,
-	})
-
-	if err != nil {
-		return nil, convertError(err)
+	result := &provider.Image{
+		ID: uuid.NewString(),
 	}
 
-	data, err := r.getData(ctx, image.Data[0])
+	if len(options.Images) == 0 {
+		image, err := r.images.Generate(ctx, openai.ImageGenerateParams{
+			Model:  r.model,
+			Prompt: input,
+		})
 
-	if err != nil {
-		return nil, err
+		if err != nil {
+			return nil, convertError(err)
+		}
+
+		data, err := r.getData(ctx, image.Data[0])
+
+		if err != nil {
+			return nil, err
+		}
+
+		result.Name = result.ID + ".png"
+		result.Reader = io.NopCloser(bytes.NewReader(data))
+	} else {
+		var b bytes.Buffer
+		w := multipart.NewWriter(&b)
+
+		w.WriteField("model", r.model)
+		w.WriteField("prompt", input)
+
+		escapeQuotes := func(s string) string {
+			return strings.NewReplacer("\\", "\\\\", `"`, "\\\"").Replace(s)
+		}
+
+		for _, image := range options.Images {
+			imageName := image.Name
+			imageType := image.ContentType
+
+			if imageName == "" {
+				switch image.ContentType {
+				case "image/jpeg":
+					imageName = "image.jpg"
+				case "image/png":
+					imageName = "image.png"
+				case "image/webp":
+					imageName = "image.webp"
+				}
+			}
+
+			if imageType == "" {
+				ext := path.Ext(imageName)
+				switch ext {
+				case ".jpg", ".jpeg":
+					imageType = "image/jpeg"
+				case ".png":
+					imageType = "image/png"
+				case ".webp":
+					imageType = "image/webp"
+				}
+			}
+
+			h := textproto.MIMEHeader{}
+			h.Set("Content-Type", options.Images[0].ContentType)
+			h.Set("Content-Disposition", fmt.Sprintf(`form-data; name="image"; filename="%s"`, escapeQuotes(imageName)))
+
+			writer, _ := w.CreatePart(h)
+
+			if _, err := io.Copy(writer, options.Images[0].Content); err != nil {
+				return nil, err
+			}
+		}
+
+		w.Close()
+
+		req, _ := http.NewRequest("POST", r.url+"images/edits", &b)
+		req.Header.Set("Content-Type", w.FormDataContentType())
+
+		if r.token != "" {
+			req.Header.Set("Authorization", "Bearer "+r.token)
+		}
+
+		resp, err := r.client.Do(req)
+
+		if err != nil {
+			return nil, err
+		}
+
+		defer resp.Body.Close()
+
+		if resp.StatusCode != http.StatusOK {
+			return nil, fmt.Errorf("failed to generate image: %s", resp.Status)
+		}
+
+		var response openai.ImagesResponse
+
+		if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
+			return nil, err
+		}
+
+		data, err := r.getData(ctx, response.Data[0])
+
+		if err != nil {
+			return nil, err
+		}
+
+		result.Name = result.ID + ".png"
+		result.Reader = io.NopCloser(bytes.NewReader(data))
 	}
 
-	id := uuid.NewString()
-
-	return &provider.Image{
-		ID:   id,
-		Name: id + ".png",
-
-		Reader: io.NopCloser(bytes.NewReader(data)),
-	}, nil
+	return result, nil
 }
 
 func (r *Renderer) getData(ctx context.Context, image openai.Image) ([]byte, error) {
