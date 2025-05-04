@@ -18,6 +18,8 @@ import (
 var _ chain.Provider = &Chain{}
 
 type Chain struct {
+	model string
+
 	completer provider.Completer
 
 	tools    []tool.Provider
@@ -29,8 +31,10 @@ type Chain struct {
 
 type Option func(*Chain)
 
-func New(options ...Option) (*Chain, error) {
-	c := &Chain{}
+func New(model string, options ...Option) (*Chain, error) {
+	c := &Chain{
+		model: model,
+	}
 
 	for _, option := range options {
 		option(c)
@@ -96,6 +100,24 @@ func (c *Chain) Complete(ctx context.Context, messages []provider.Message, optio
 		messages = slices.Concat(values, messages)
 	}
 
+	var contextFiles []provider.File
+
+	for _, m := range messages {
+		var files []provider.File
+
+		for _, c := range m.Content {
+			if c.File != nil {
+				files = append(files, *c.File)
+			}
+		}
+
+		contextFiles = files
+	}
+
+	if len(contextFiles) > 0 {
+		ctx = tool.WithFiles(ctx, contextFiles)
+	}
+
 	input := slices.Clone(messages)
 
 	agentTools := make(map[string]tool.Provider)
@@ -141,7 +163,8 @@ func (c *Chain) Complete(ctx context.Context, messages []provider.Message, optio
 		acc.Add(completion)
 
 		delta := provider.Completion{
-			ID: accID,
+			ID:    accID,
+			Model: c.model,
 
 			Reason: completion.Reason,
 
@@ -200,6 +223,7 @@ func (c *Chain) Complete(ctx context.Context, messages []provider.Message, optio
 		}
 
 		completion.ID = accID
+		completion.Model = c.model
 
 		if completion.Message == nil {
 			return completion, nil

@@ -1,7 +1,6 @@
 package openai
 
 import (
-	"bytes"
 	"context"
 	"encoding/base64"
 	"encoding/json"
@@ -111,10 +110,14 @@ func (h *Handler) handleChatCompletion(w http.ResponseWriter, r *http.Request) {
 
 				ID: completion.ID,
 
-				Model:   req.Model,
+				Model:   completion.Model,
 				Created: time.Now().Unix(),
 
 				Choices: []ChatCompletionChoice{},
+			}
+
+			if result.Model == "" {
+				result.Model = req.Model
 			}
 
 			if completion.Message != nil {
@@ -160,7 +163,7 @@ func (h *Handler) handleChatCompletion(w http.ResponseWriter, r *http.Request) {
 
 				ID: completion.ID,
 
-				Model:   req.Model,
+				Model:   completion.Model,
 				Created: time.Now().Unix(),
 
 				Choices: []ChatCompletionChoice{
@@ -174,6 +177,10 @@ func (h *Handler) handleChatCompletion(w http.ResponseWriter, r *http.Request) {
 				},
 			}
 
+			if result.Model == "" {
+				result.Model = req.Model
+			}
+
 			writeEventData(w, result)
 		}
 
@@ -183,10 +190,14 @@ func (h *Handler) handleChatCompletion(w http.ResponseWriter, r *http.Request) {
 
 				ID: completion.ID,
 
-				Model:   req.Model,
+				Model:   completion.Model,
 				Created: time.Now().Unix(),
 
 				Choices: []ChatCompletionChoice{},
+			}
+
+			if result.Model == "" {
+				result.Model = req.Model
 			}
 
 			result.Usage = &Usage{
@@ -212,10 +223,14 @@ func (h *Handler) handleChatCompletion(w http.ResponseWriter, r *http.Request) {
 
 			ID: completion.ID,
 
-			Model:   req.Model,
+			Model:   completion.Model,
 			Created: time.Now().Unix(),
 
 			Choices: []ChatCompletionChoice{},
+		}
+
+		if result.Model == "" {
+			result.Model = req.Model
 		}
 
 		if completion.Message != nil {
@@ -359,7 +374,7 @@ func toFile(url string) (*provider.File, error) {
 		}
 
 		file := provider.File{
-			Content:     bytes.NewReader(data),
+			Content:     data,
 			ContentType: resp.Header.Get("Content-Type"),
 		}
 
@@ -386,7 +401,7 @@ func toFile(url string) (*provider.File, error) {
 		}
 
 		file := provider.File{
-			Content:     bytes.NewReader(data),
+			Content:     data,
 			ContentType: match[1],
 		}
 

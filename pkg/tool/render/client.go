@@ -1,26 +1,24 @@
-package speak
+package render
 
 import (
 	"context"
 	"errors"
-	"io"
 	"net/url"
 	"os"
 	"path/filepath"
 
 	"github.com/adrianliechti/wingman/pkg/provider"
 	"github.com/adrianliechti/wingman/pkg/tool"
-
 	"github.com/google/uuid"
 )
 
 var _ tool.Provider = (*Client)(nil)
 
 type Client struct {
-	provider provider.Synthesizer
+	provider provider.Renderer
 }
 
-func New(provider provider.Synthesizer, options ...Option) (*Client, error) {
+func New(provider provider.Renderer, options ...Option) (*Client, error) {
 	c := &Client{
 		provider: provider,
 	}
@@ -35,8 +33,8 @@ func New(provider provider.Synthesizer, options ...Option) (*Client, error) {
 func (c *Client) Tools(ctx context.Context) ([]tool.Tool, error) {
 	return []tool.Tool{
 		{
-			Name:        "speak_text",
-			Description: "Synthesize speech from text using a TTS (text-to-speech) model on a input prompt. Returns a URL to the generated audio file. Render the URL as markdown ```[prompt](url)```",
+			Name:        "generate_image",
+			Description: "Generate images based based on user-provided text prompt or edit an existing one in the context. Returns a URL to download the generated image.",
 
 			Parameters: map[string]any{
 				"type": "object",
@@ -44,7 +42,7 @@ func (c *Client) Tools(ctx context.Context) ([]tool.Tool, error) {
 				"properties": map[string]any{
 					"prompt": map[string]any{
 						"type":        "string",
-						"description": "text to generate audio for in orgiginal language",
+						"description": "detailed text description of the image to generate or edit. must be english.",
 					},
 				},
 
@@ -55,7 +53,7 @@ func (c *Client) Tools(ctx context.Context) ([]tool.Tool, error) {
 }
 
 func (c *Client) Execute(ctx context.Context, name string, parameters map[string]any) (any, error) {
-	if name != "speak_text" {
+	if name != "generate_image" {
 		return nil, tool.ErrInvalidTool
 	}
 
@@ -65,9 +63,9 @@ func (c *Client) Execute(ctx context.Context, name string, parameters map[string
 		return nil, errors.New("missing prompt parameter")
 	}
 
-	options := &provider.SynthesizeOptions{}
+	options := &provider.RenderOptions{}
 
-	synthesis, err := c.provider.Synthesize(ctx, prompt, options)
+	image, err := c.provider.Render(ctx, prompt, options)
 
 	if err != nil {
 		return nil, err
@@ -79,16 +77,10 @@ func (c *Client) Execute(ctx context.Context, name string, parameters map[string
 		id = uuid.New()
 	}
 
-	path := id.String() + ".wav"
+	path := id.String() + ".png"
 	os.MkdirAll(filepath.Join("public", "files"), 0755)
 
-	f, err := os.Create(filepath.Join("public", "files", path))
-
-	if err != nil {
-		return nil, err
-	}
-
-	if _, err := io.Copy(f, synthesis.Reader); err != nil {
+	if err := os.WriteFile(filepath.Join("public", "files", path), image.Content, 0644); err != nil {
 		return nil, err
 	}
 

@@ -5,7 +5,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
-	"io"
 
 	"github.com/adrianliechti/wingman/pkg/provider"
 
@@ -61,7 +60,9 @@ func (c *Completer) complete(ctx context.Context, req anthropic.MessageNewParams
 	}
 
 	return &provider.Completion{
-		ID:     message.ID,
+		ID:    message.ID,
+		Model: c.model,
+
 		Reason: toCompletionResult(message.StopReason),
 
 		Message: &provider.Message{
@@ -94,7 +95,9 @@ func (c *Completer) completeStream(ctx context.Context, req anthropic.MessageNew
 			switch event := event.ContentBlock.AsAny().(type) {
 			case anthropic.TextBlock:
 				delta := provider.Completion{
-					ID:     message.ID,
+					ID:    message.ID,
+					Model: c.model,
+
 					Reason: toCompletionResult(message.StopReason),
 
 					Message: &provider.Message{
@@ -116,7 +119,9 @@ func (c *Completer) completeStream(ctx context.Context, req anthropic.MessageNew
 
 			case anthropic.ToolUseBlock:
 				delta := provider.Completion{
-					ID:     message.ID,
+					ID:    message.ID,
+					Model: c.model,
+
 					Reason: toCompletionResult(message.StopReason),
 
 					Message: &provider.Message{
@@ -150,7 +155,8 @@ func (c *Completer) completeStream(ctx context.Context, req anthropic.MessageNew
 			switch event := event.Delta.AsAny().(type) {
 			case anthropic.TextDelta:
 				delta := provider.Completion{
-					ID: message.ID,
+					ID:    message.ID,
+					Model: c.model,
 
 					Message: &provider.Message{
 						Role: provider.MessageRoleAssistant,
@@ -169,7 +175,8 @@ func (c *Completer) completeStream(ctx context.Context, req anthropic.MessageNew
 
 			case anthropic.InputJSONDelta:
 				delta := provider.Completion{
-					ID: message.ID,
+					ID:    message.ID,
+					Model: c.model,
 
 					Message: &provider.Message{
 						Role: provider.MessageRoleAssistant,
@@ -202,7 +209,9 @@ func (c *Completer) completeStream(ctx context.Context, req anthropic.MessageNew
 
 		case anthropic.MessageStopEvent:
 			delta := provider.Completion{
-				ID:     message.ID,
+				ID:    message.ID,
+				Model: c.model,
+
 				Reason: toCompletionResult(message.StopReason),
 
 				Message: &provider.Message{
@@ -280,14 +289,8 @@ func (c *Completer) convertMessageRequest(input []provider.Message, options *pro
 				}
 
 				if c.File != nil {
-					data, err := io.ReadAll(c.File.Content)
-
-					if err != nil {
-						return nil, err
-					}
-
 					mime := c.File.ContentType
-					content := base64.StdEncoding.EncodeToString(data)
+					content := base64.StdEncoding.EncodeToString(c.File.Content)
 
 					switch mime {
 					case "image/jpeg", "image/png", "image/gif", "image/webp":

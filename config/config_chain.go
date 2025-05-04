@@ -50,6 +50,8 @@ type chainConfig struct {
 }
 
 type chainContext struct {
+	Model string
+
 	Index index.Provider
 
 	Embedder  provider.Embedder
@@ -81,6 +83,8 @@ func (cfg *Config) registerChains(f *configFile) error {
 		}
 
 		context := chainContext{
+			Model: id,
+
 			Messages: make([]provider.Message, 0),
 
 			Tools:  make(map[string]tool.Provider),
@@ -194,7 +198,7 @@ func agentChain(cfg chainConfig, context chainContext) (chain.Provider, error) {
 		options = append(options, agent.WithEffort(context.Effort))
 	}
 
-	return agent.New(options...)
+	return agent.New(context.Model, options...)
 }
 
 func assistantChain(cfg chainConfig, context chainContext) (chain.Provider, error) {

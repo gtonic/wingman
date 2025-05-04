@@ -14,7 +14,8 @@ type TranscribeOptions struct {
 }
 
 type Transcription struct {
-	ID string
+	ID    string
+	Model string
 
 	Text string
 

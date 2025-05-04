@@ -1,3 +1,3 @@
-package draw
+package synthesize
 
 type Option func(*Client)

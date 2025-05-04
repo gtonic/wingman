@@ -74,7 +74,9 @@ func (c *Completer) complete(ctx context.Context, req *v2.V2ChatRequest, options
 	}
 
 	return &provider.Completion{
-		ID:     resp.Id,
+		ID:    resp.Id,
+		Model: c.model,
+
 		Reason: toCompletionReason(resp.FinishReason),
 
 		Message: &provider.Message{
@@ -116,7 +118,8 @@ func (c *Completer) completeStream(ctx context.Context, req *v2.V2ChatStreamRequ
 
 		if resp.ContentStart != nil {
 			delta := provider.Completion{
-				ID: id,
+				ID:    id,
+				Model: c.model,
 
 				Message: &provider.Message{
 					Role: provider.MessageRoleAssistant,
@@ -137,7 +140,8 @@ func (c *Completer) completeStream(ctx context.Context, req *v2.V2ChatStreamRequ
 
 		if resp.ContentDelta != nil {
 			delta := provider.Completion{
-				ID: id,
+				ID:    id,
+				Model: c.model,
 
 				Message: &provider.Message{
 					Role: provider.MessageRoleAssistant,
@@ -161,7 +165,8 @@ func (c *Completer) completeStream(ctx context.Context, req *v2.V2ChatStreamRequ
 
 		if resp.MessageEnd != nil {
 			delta := provider.Completion{
-				ID: id,
+				ID:    id,
+				Model: c.model,
 
 				Message: &provider.Message{
 					Role: provider.MessageRoleAssistant,
@@ -191,7 +196,8 @@ func (c *Completer) completeStream(ctx context.Context, req *v2.V2ChatStreamRequ
 
 		if resp.ToolCallStart != nil {
 			delta := provider.Completion{
-				ID: id,
+				ID:    id,
+				Model: c.model,
 
 				Message: &provider.Message{
 					Role: provider.MessageRoleAssistant,
@@ -231,7 +237,8 @@ func (c *Completer) completeStream(ctx context.Context, req *v2.V2ChatStreamRequ
 
 		if resp.ToolCallDelta != nil {
 			delta := provider.Completion{
-				ID: id,
+				ID:    id,
+				Model: c.model,
 
 				Message: &provider.Message{
 					Role: provider.MessageRoleAssistant,

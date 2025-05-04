@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/base64"
 	"errors"
-	"io"
 	"slices"
 	"strings"
 
@@ -65,7 +64,9 @@ func (c *Completer) complete(ctx context.Context, req openai.ChatCompletionNewPa
 	choice := completion.Choices[0]
 
 	result := &provider.Completion{
-		ID:     completion.ID,
+		ID:    completion.ID,
+		Model: c.model,
+
 		Reason: provider.CompletionReasonStop,
 
 		Message: &provider.Message{
@@ -112,7 +113,8 @@ func (c *Completer) completeStream(ctx context.Context, req openai.ChatCompletio
 		chunk := stream.Current()
 
 		delta := provider.Completion{
-			ID: chunk.ID,
+			ID:    chunk.ID,
+			Model: c.model,
 
 			Message: &provider.Message{
 				Role: provider.MessageRoleAssistant,
@@ -299,14 +301,8 @@ func (c *Completer) convertMessages(input []provider.Message) ([]openai.ChatComp
 				}
 
 				if c.File != nil {
-					data, err := io.ReadAll(c.File.Content)
-
-					if err != nil {
-						return nil, err
-					}
-
 					mime := c.File.ContentType
-					content := base64.StdEncoding.EncodeToString(data)
+					content := base64.StdEncoding.EncodeToString(c.File.Content)
 
 					switch c.File.ContentType {
 					case "image/png", "image/jpeg", "image/webp", "image/gif":

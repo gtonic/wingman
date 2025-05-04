@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"reflect"
 
 	"github.com/adrianliechti/wingman/pkg/provider"
@@ -86,7 +85,9 @@ func (c *Completer) complete(ctx context.Context, req *bedrockruntime.ConverseIn
 	}
 
 	return &provider.Completion{
-		ID:     uuid.New().String(),
+		ID:    uuid.New().String(),
+		Model: c.model,
+
 		Reason: toCompletionResult(resp.StopReason),
 
 		Message: &provider.Message{
@@ -114,7 +115,8 @@ func (c *Completer) completeStream(ctx context.Context, req *bedrockruntime.Conv
 		switch v := event.(type) {
 		case *types.ConverseStreamOutputMemberMessageStart:
 			delta := provider.Completion{
-				ID: id,
+				ID:    id,
+				Model: c.model,
 
 				Message: &provider.Message{
 					Role: provider.MessageRoleAssistant,
@@ -127,7 +129,8 @@ func (c *Completer) completeStream(ctx context.Context, req *bedrockruntime.Conv
 			switch b := v.Value.Start.(type) {
 			case *types.ContentBlockStartMemberToolUse:
 				delta := provider.Completion{
-					ID: id,
+					ID:    id,
+					Model: c.model,
 
 					Message: &provider.Message{
 						Role: provider.MessageRoleAssistant,
@@ -151,7 +154,8 @@ func (c *Completer) completeStream(ctx context.Context, req *bedrockruntime.Conv
 			switch b := v.Value.Delta.(type) {
 			case *types.ContentBlockDeltaMemberText:
 				delta := provider.Completion{
-					ID: id,
+					ID:    id,
+					Model: c.model,
 
 					Message: &provider.Message{
 						Role: provider.MessageRoleAssistant,
@@ -170,7 +174,8 @@ func (c *Completer) completeStream(ctx context.Context, req *bedrockruntime.Conv
 
 			case *types.ContentBlockDeltaMemberToolUse:
 				delta := provider.Completion{
-					ID: id,
+					ID:    id,
+					Model: c.model,
 
 					Message: &provider.Message{
 						Role: provider.MessageRoleAssistant,
@@ -197,7 +202,8 @@ func (c *Completer) completeStream(ctx context.Context, req *bedrockruntime.Conv
 
 		case *types.ConverseStreamOutputMemberMessageStop:
 			delta := provider.Completion{
-				ID: id,
+				ID:    id,
+				Model: c.model,
 
 				Reason: toCompletionResult(v.Value.StopReason),
 
@@ -218,7 +224,8 @@ func (c *Completer) completeStream(ctx context.Context, req *bedrockruntime.Conv
 
 		case *types.ConverseStreamOutputMemberMetadata:
 			delta := provider.Completion{
-				ID: id,
+				ID:    id,
+				Model: c.model,
 
 				Message: &provider.Message{
 					Role: provider.MessageRoleAssistant,
@@ -428,19 +435,13 @@ func convertFile(val *provider.File) (types.ContentBlock, error) {
 		return nil, nil
 	}
 
-	data, err := io.ReadAll(val.Content)
-
-	if err != nil {
-		return nil, err
-	}
-
 	if format, ok := convertDocumentFormat(val.ContentType); ok {
 		return &types.ContentBlockMemberDocument{
 			Value: types.DocumentBlock{
 				Name:   aws.String(uuid.NewString()),
 				Format: format,
 				Source: &types.DocumentSourceMemberBytes{
-					Value: data,
+					Value: val.Content,
 				},
 			},
 		}, nil
@@ -451,7 +452,7 @@ func convertFile(val *provider.File) (types.ContentBlock, error) {
 			Value: types.ImageBlock{
 				Format: format,
 				Source: &types.ImageSourceMemberBytes{
-					Value: data,
+					Value: val.Content,
 				},
 			},
 		}, nil
@@ -462,7 +463,7 @@ func convertFile(val *provider.File) (types.ContentBlock, error) {
 			Value: types.VideoBlock{
 				Format: format,
 				Source: &types.VideoSourceMemberBytes{
-					Value: data,
+					Value: val.Content,
 				},
 			},
 		}, nil

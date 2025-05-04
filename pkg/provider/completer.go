@@ -113,9 +113,10 @@ func (m Message) ToolResult() (id string, content string, ok bool) {
 }
 
 type CompletionAccumulator struct {
-	ID string
+	id    string
+	model string
 
-	Role   MessageRole
+	role   MessageRole
 	reason CompletionReason
 
 	content strings.Builder
@@ -128,7 +129,11 @@ type CompletionAccumulator struct {
 
 func (a *CompletionAccumulator) Add(c Completion) {
 	if c.ID != "" {
-		a.ID = c.ID
+		a.id = c.ID
+	}
+
+	if c.Model != "" {
+		a.model = c.Model
 	}
 
 	if c.Reason != "" {
@@ -137,7 +142,7 @@ func (a *CompletionAccumulator) Add(c Completion) {
 
 	if c.Message != nil {
 		if c.Message.Role != "" {
-			a.Role = c.Message.Role
+			a.role = c.Message.Role
 		}
 
 		for _, c := range c.Message.Content {
@@ -193,12 +198,13 @@ func (a *CompletionAccumulator) Result() *Completion {
 	}
 
 	return &Completion{
-		ID: a.ID,
+		ID:    a.id,
+		Model: a.model,
 
 		Reason: a.reason,
 
 		Message: &Message{
-			Role:    a.Role,
+			Role:    a.role,
 			Content: content,
 		},
 
@@ -279,7 +285,8 @@ type CompleteOptions struct {
 }
 
 type Completion struct {
-	ID string
+	ID    string
+	Model string
 
 	Reason CompletionReason
 

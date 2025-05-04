@@ -1,3 +1,3 @@
-package speak
+package retrieve
 
 type Option func(*Client)

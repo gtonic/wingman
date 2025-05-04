@@ -1,4 +1,4 @@
-package retriever
+package retrieve
 
 type Result struct {
 	Title   string `json:"title,omitempty"`
