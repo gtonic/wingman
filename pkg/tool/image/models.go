@@ -1,4 +1,4 @@
-package draw
+package image
 
 type Result struct {
 	URL string `json:"url"`

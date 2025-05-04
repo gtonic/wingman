@@ -1,9 +1,8 @@
-package draw
+package image
 
 import (
 	"context"
 	"errors"
-	"io"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -34,8 +33,8 @@ func New(provider provider.Renderer, options ...Option) (*Client, error) {
 func (c *Client) Tools(ctx context.Context) ([]tool.Tool, error) {
 	return []tool.Tool{
 		{
-			Name:        "draw_image",
-			Description: "Generate images based based on user-provided prompts. Returns a URL to download the generated image. Editing images is not supported.",
+			Name:        "generate_image",
+			Description: "Generate images based based on user-provided text prompt or edit an existing one in the context. Returns a URL to download the generated image.",
 
 			Parameters: map[string]any{
 				"type": "object",
@@ -43,7 +42,7 @@ func (c *Client) Tools(ctx context.Context) ([]tool.Tool, error) {
 				"properties": map[string]any{
 					"prompt": map[string]any{
 						"type":        "string",
-						"description": "detailed text description of the image to generate. must be english.",
+						"description": "detailed text description of the image to generate or edit. must be english.",
 					},
 				},
 
@@ -54,7 +53,7 @@ func (c *Client) Tools(ctx context.Context) ([]tool.Tool, error) {
 }
 
 func (c *Client) Execute(ctx context.Context, name string, parameters map[string]any) (any, error) {
-	if name != "draw_image" {
+	if name != "generate_image" {
 		return nil, tool.ErrInvalidTool
 	}
 
@@ -81,13 +80,7 @@ func (c *Client) Execute(ctx context.Context, name string, parameters map[string
 	path := id.String() + ".png"
 	os.MkdirAll(filepath.Join("public", "files"), 0755)
 
-	f, err := os.Create(filepath.Join("public", "files", path))
-
-	if err != nil {
-		return nil, err
-	}
-
-	if _, err := io.Copy(f, image.Reader); err != nil {
+	if err := os.WriteFile(filepath.Join("public", "files", path), image.Content, 0644); err != nil {
 		return nil, err
 	}
 
@@ -99,8 +92,5 @@ func (c *Client) Execute(ctx context.Context, name string, parameters map[string
 
 	return Result{
 		URL: url,
-
-		//Style:  string(options.Style),
-		//Prompt: prompt,
 	}, nil
 }

@@ -2,6 +2,7 @@ package openai
 
 import (
 	"context"
+	"io"
 
 	"github.com/adrianliechti/wingman/pkg/provider"
 
@@ -43,19 +44,23 @@ func (s *Synthesizer) Synthesize(ctx context.Context, content string, options *p
 
 		Voice: openai.AudioSpeechNewParamsVoiceAlloy,
 
-		ResponseFormat: openai.AudioSpeechNewParamsResponseFormatWAV,
+		ResponseFormat: openai.AudioSpeechNewParamsResponseFormatMP3,
 	})
 
 	if err != nil {
 		return nil, convertError(err)
 	}
 
-	id := uuid.NewString()
+	data, err := io.ReadAll(result.Body)
+
+	if err != nil {
+		return nil, err
+	}
 
 	return &provider.Synthesis{
-		ID: id,
+		ID: uuid.NewString(),
 
-		Name:   id + ".wav",
-		Reader: result.Body,
+		Content:     data,
+		ContentType: "audio/mpeg",
 	}, nil
 }

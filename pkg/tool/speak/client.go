@@ -3,7 +3,6 @@ package speak
 import (
 	"context"
 	"errors"
-	"io"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -79,16 +78,10 @@ func (c *Client) Execute(ctx context.Context, name string, parameters map[string
 		id = uuid.New()
 	}
 
-	path := id.String() + ".wav"
+	path := id.String() + ".mp3"
 	os.MkdirAll(filepath.Join("public", "files"), 0755)
 
-	f, err := os.Create(filepath.Join("public", "files", path))
-
-	if err != nil {
-		return nil, err
-	}
-
-	if _, err := io.Copy(f, synthesis.Reader); err != nil {
+	if err := os.WriteFile(filepath.Join("public", "files", path), synthesis.Content, 0644); err != nil {
 		return nil, err
 	}
 
