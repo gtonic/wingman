@@ -1,3 +1,3 @@
-package speak
+package extract
 
 type Option func(*Client)

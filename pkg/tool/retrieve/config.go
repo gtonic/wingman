@@ -1,3 +1,3 @@
-package image
+package retrieve
 
 type Option func(*Client)

@@ -1,3 +1,3 @@
-package retriever
+package synthesize
 
 type Option func(*Client)

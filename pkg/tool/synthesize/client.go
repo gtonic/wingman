@@ -1,4 +1,4 @@
-package speak
+package synthesize
 
 import (
 	"context"

@@ -4,18 +4,18 @@ import (
 	"errors"
 	"strings"
 
+	"github.com/adrianliechti/wingman/pkg/tool"
+	"github.com/adrianliechti/wingman/pkg/tool/custom"
+	"github.com/adrianliechti/wingman/pkg/tool/extract"
+	"github.com/adrianliechti/wingman/pkg/tool/mcp"
+	"github.com/adrianliechti/wingman/pkg/tool/render"
+	"github.com/adrianliechti/wingman/pkg/tool/retrieve"
+	"github.com/adrianliechti/wingman/pkg/tool/search"
+	"github.com/adrianliechti/wingman/pkg/tool/synthesize"
+	"github.com/adrianliechti/wingman/pkg/tool/translate"
+
 	"github.com/adrianliechti/wingman/pkg/extractor"
 	"github.com/adrianliechti/wingman/pkg/provider"
-
-	"github.com/adrianliechti/wingman/pkg/tool"
-	"github.com/adrianliechti/wingman/pkg/tool/crawler"
-	"github.com/adrianliechti/wingman/pkg/tool/custom"
-	"github.com/adrianliechti/wingman/pkg/tool/image"
-	"github.com/adrianliechti/wingman/pkg/tool/mcp"
-	"github.com/adrianliechti/wingman/pkg/tool/retriever"
-	"github.com/adrianliechti/wingman/pkg/tool/search"
-	"github.com/adrianliechti/wingman/pkg/tool/speak"
-	"github.com/adrianliechti/wingman/pkg/tool/translate"
 	"github.com/adrianliechti/wingman/pkg/translator"
 
 	"github.com/adrianliechti/wingman/pkg/index"
@@ -143,22 +143,22 @@ func createTool(cfg toolConfig, context toolContext) (tool.Provider, error) {
 	switch strings.ToLower(cfg.Type) {
 
 	case "extractor", "crawler":
-		return extractorTool(cfg, context)
+		return extractTool(cfg, context)
 
 	case "renderer", "draw":
-		return rendererTool(cfg, context)
+		return renderTool(cfg, context)
 
 	case "retriever":
-		return retrieverTool(cfg, context)
+		return retrieveTool(cfg, context)
 
 	case "search":
 		return searchTool(cfg, context)
 
 	case "synthesizer", "speak":
-		return synthesizerTool(cfg, context)
+		return synthesizeTool(cfg, context)
 
-	case "translater", "translate":
-		return translaterTool(cfg, context)
+	case "translator":
+		return translateTool(cfg, context)
 
 	case "mcp":
 		return mcpTool(cfg, context)
@@ -183,22 +183,22 @@ func createTool(cfg toolConfig, context toolContext) (tool.Provider, error) {
 	}
 }
 
-func extractorTool(cfg toolConfig, context toolContext) (tool.Provider, error) {
-	var options []crawler.Option
+func extractTool(cfg toolConfig, context toolContext) (tool.Provider, error) {
+	var options []extract.Option
 
-	return crawler.New(context.Extractor, options...)
+	return extract.New(context.Extractor, options...)
 }
 
-func rendererTool(cfg toolConfig, context toolContext) (tool.Provider, error) {
-	var options []image.Option
+func renderTool(cfg toolConfig, context toolContext) (tool.Provider, error) {
+	var options []render.Option
 
-	return image.New(context.Renderer, options...)
+	return render.New(context.Renderer, options...)
 }
 
-func retrieverTool(cfg toolConfig, context toolContext) (tool.Provider, error) {
-	var options []retriever.Option
+func retrieveTool(cfg toolConfig, context toolContext) (tool.Provider, error) {
+	var options []retrieve.Option
 
-	return retriever.New(context.Index, options...)
+	return retrieve.New(context.Index, options...)
 }
 
 func searchTool(cfg toolConfig, context toolContext) (tool.Provider, error) {
@@ -207,13 +207,13 @@ func searchTool(cfg toolConfig, context toolContext) (tool.Provider, error) {
 	return search.New(context.Index, options...)
 }
 
-func synthesizerTool(cfg toolConfig, context toolContext) (tool.Provider, error) {
-	var options []speak.Option
+func synthesizeTool(cfg toolConfig, context toolContext) (tool.Provider, error) {
+	var options []synthesize.Option
 
-	return speak.New(context.Synthesizer, options...)
+	return synthesize.New(context.Synthesizer, options...)
 }
 
-func translaterTool(cfg toolConfig, context toolContext) (tool.Provider, error) {
+func translateTool(cfg toolConfig, context toolContext) (tool.Provider, error) {
 	var options []translate.Option
 
 	return translate.New(context.Translator, options...)
