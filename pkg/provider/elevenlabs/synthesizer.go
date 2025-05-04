@@ -69,7 +69,8 @@ func (s *Synthesizer) Synthesize(ctx context.Context, content string, options *p
 	id := uuid.NewString()
 
 	return &provider.Synthesis{
-		ID: id,
+		ID:    id,
+		Model: s.model,
 
 		Content:     data,
 		ContentType: "audio/mpeg",

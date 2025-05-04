@@ -85,7 +85,9 @@ func (c *Completer) complete(ctx context.Context, req *bedrockruntime.ConverseIn
 	}
 
 	return &provider.Completion{
-		ID:     uuid.New().String(),
+		ID:    uuid.New().String(),
+		Model: c.model,
+
 		Reason: toCompletionResult(resp.StopReason),
 
 		Message: &provider.Message{
@@ -113,7 +115,8 @@ func (c *Completer) completeStream(ctx context.Context, req *bedrockruntime.Conv
 		switch v := event.(type) {
 		case *types.ConverseStreamOutputMemberMessageStart:
 			delta := provider.Completion{
-				ID: id,
+				ID:    id,
+				Model: c.model,
 
 				Message: &provider.Message{
 					Role: provider.MessageRoleAssistant,
@@ -126,7 +129,8 @@ func (c *Completer) completeStream(ctx context.Context, req *bedrockruntime.Conv
 			switch b := v.Value.Start.(type) {
 			case *types.ContentBlockStartMemberToolUse:
 				delta := provider.Completion{
-					ID: id,
+					ID:    id,
+					Model: c.model,
 
 					Message: &provider.Message{
 						Role: provider.MessageRoleAssistant,
@@ -150,7 +154,8 @@ func (c *Completer) completeStream(ctx context.Context, req *bedrockruntime.Conv
 			switch b := v.Value.Delta.(type) {
 			case *types.ContentBlockDeltaMemberText:
 				delta := provider.Completion{
-					ID: id,
+					ID:    id,
+					Model: c.model,
 
 					Message: &provider.Message{
 						Role: provider.MessageRoleAssistant,
@@ -169,7 +174,8 @@ func (c *Completer) completeStream(ctx context.Context, req *bedrockruntime.Conv
 
 			case *types.ContentBlockDeltaMemberToolUse:
 				delta := provider.Completion{
-					ID: id,
+					ID:    id,
+					Model: c.model,
 
 					Message: &provider.Message{
 						Role: provider.MessageRoleAssistant,
@@ -196,7 +202,8 @@ func (c *Completer) completeStream(ctx context.Context, req *bedrockruntime.Conv
 
 		case *types.ConverseStreamOutputMemberMessageStop:
 			delta := provider.Completion{
-				ID: id,
+				ID:    id,
+				Model: c.model,
 
 				Reason: toCompletionResult(v.Value.StopReason),
 
@@ -217,7 +224,8 @@ func (c *Completer) completeStream(ctx context.Context, req *bedrockruntime.Conv
 
 		case *types.ConverseStreamOutputMemberMetadata:
 			delta := provider.Completion{
-				ID: id,
+				ID:    id,
+				Model: c.model,
 
 				Message: &provider.Message{
 					Role: provider.MessageRoleAssistant,

@@ -50,7 +50,8 @@ func (r *Renderer) Render(ctx context.Context, input string, options *provider.R
 	}
 
 	result := &provider.Rendering{
-		ID: uuid.NewString(),
+		ID:    uuid.NewString(),
+		Model: r.model,
 	}
 
 	if len(options.Images) == 0 {

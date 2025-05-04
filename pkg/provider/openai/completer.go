@@ -64,7 +64,9 @@ func (c *Completer) complete(ctx context.Context, req openai.ChatCompletionNewPa
 	choice := completion.Choices[0]
 
 	result := &provider.Completion{
-		ID:     completion.ID,
+		ID:    completion.ID,
+		Model: c.model,
+
 		Reason: provider.CompletionReasonStop,
 
 		Message: &provider.Message{
@@ -111,7 +113,8 @@ func (c *Completer) completeStream(ctx context.Context, req openai.ChatCompletio
 		chunk := stream.Current()
 
 		delta := provider.Completion{
-			ID: chunk.ID,
+			ID:    chunk.ID,
+			Model: c.model,
 
 			Message: &provider.Message{
 				Role: provider.MessageRoleAssistant,

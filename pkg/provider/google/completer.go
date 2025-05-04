@@ -111,7 +111,9 @@ func (c *Completer) complete(ctx context.Context, session *genai.ChatSession, pa
 	candidate := resp.Candidates[0]
 
 	return &provider.Completion{
-		ID:     uuid.New().String(),
+		ID:    uuid.New().String(),
+		Model: c.model,
+
 		Reason: toCompletionResult(candidate),
 
 		Message: &provider.Message{

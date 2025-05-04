@@ -142,11 +142,11 @@ func (cfg *Config) registerTools(f *configFile) error {
 func createTool(cfg toolConfig, context toolContext) (tool.Provider, error) {
 	switch strings.ToLower(cfg.Type) {
 
-	case "crawler":
-		return crawlerTool(cfg, context)
+	case "extractor", "crawler":
+		return extractorTool(cfg, context)
 
-	case "draw", "image":
-		return imageTool(cfg, context)
+	case "renderer", "draw":
+		return rendererTool(cfg, context)
 
 	case "retriever":
 		return retrieverTool(cfg, context)
@@ -154,11 +154,11 @@ func createTool(cfg toolConfig, context toolContext) (tool.Provider, error) {
 	case "search":
 		return searchTool(cfg, context)
 
-	case "speak":
-		return speakTool(cfg, context)
+	case "synthesizer", "speak":
+		return synthesizerTool(cfg, context)
 
-	case "translate":
-		return translateTool(cfg, context)
+	case "translater", "translate":
+		return translaterTool(cfg, context)
 
 	case "mcp":
 		return mcpTool(cfg, context)
@@ -183,13 +183,13 @@ func createTool(cfg toolConfig, context toolContext) (tool.Provider, error) {
 	}
 }
 
-func crawlerTool(cfg toolConfig, context toolContext) (tool.Provider, error) {
+func extractorTool(cfg toolConfig, context toolContext) (tool.Provider, error) {
 	var options []crawler.Option
 
 	return crawler.New(context.Extractor, options...)
 }
 
-func imageTool(cfg toolConfig, context toolContext) (tool.Provider, error) {
+func rendererTool(cfg toolConfig, context toolContext) (tool.Provider, error) {
 	var options []image.Option
 
 	return image.New(context.Renderer, options...)
@@ -207,13 +207,13 @@ func searchTool(cfg toolConfig, context toolContext) (tool.Provider, error) {
 	return search.New(context.Index, options...)
 }
 
-func speakTool(cfg toolConfig, context toolContext) (tool.Provider, error) {
+func synthesizerTool(cfg toolConfig, context toolContext) (tool.Provider, error) {
 	var options []speak.Option
 
 	return speak.New(context.Synthesizer, options...)
 }
 
-func translateTool(cfg toolConfig, context toolContext) (tool.Provider, error) {
+func translaterTool(cfg toolConfig, context toolContext) (tool.Provider, error) {
 	var options []translate.Option
 
 	return translate.New(context.Translator, options...)

@@ -44,7 +44,9 @@ func (e *Embedder) Embed(ctx context.Context, texts []string) (*provider.Embeddi
 		return nil, convertError(err)
 	}
 
-	result := &provider.Embedding{}
+	result := &provider.Embedding{
+		Model: e.model,
+	}
 
 	if embedding.Usage.PromptTokens > 0 {
 		result.Usage = &provider.Usage{

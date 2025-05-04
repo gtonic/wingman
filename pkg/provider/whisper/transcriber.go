@@ -19,6 +19,8 @@ var _ provider.Transcriber = (*Transcriber)(nil)
 
 type Transcriber struct {
 	*Config
+
+	model string
 }
 
 func NewTranscriber(url, model string, options ...Option) (*Transcriber, error) {
@@ -100,7 +102,8 @@ func (t *Transcriber) Transcribe(ctx context.Context, input provider.File, optio
 	}
 
 	result := provider.Transcription{
-		ID: id,
+		ID:    id,
+		Model: t.model,
 
 		Text: content,
 

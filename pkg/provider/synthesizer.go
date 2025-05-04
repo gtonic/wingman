@@ -13,7 +13,8 @@ type SynthesizeOptions struct {
 }
 
 type Synthesis struct {
-	ID string
+	ID    string
+	Model string
 
 	Content     []byte
 	ContentType string

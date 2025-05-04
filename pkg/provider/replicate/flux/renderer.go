@@ -164,7 +164,8 @@ func (r *Renderer) convertImage(output replicate.PredictionOutput) (*provider.Re
 	}
 
 	return &provider.Rendering{
-		ID: uuid.New().String(),
+		ID:    uuid.New().String(),
+		Model: r.model,
 
 		Content:     data,
 		ContentType: "image/png",

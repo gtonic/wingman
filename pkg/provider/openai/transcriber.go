@@ -53,7 +53,8 @@ func (t *Transcriber) Transcribe(ctx context.Context, input provider.File, optio
 	}
 
 	result := provider.Transcription{
-		ID: id,
+		ID:    id,
+		Model: t.model,
 
 		Text: transcription.Text,
 	}

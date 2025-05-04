@@ -60,7 +60,9 @@ func (c *Completer) complete(ctx context.Context, req anthropic.MessageNewParams
 	}
 
 	return &provider.Completion{
-		ID:     message.ID,
+		ID:    message.ID,
+		Model: c.model,
+
 		Reason: toCompletionResult(message.StopReason),
 
 		Message: &provider.Message{
@@ -93,7 +95,9 @@ func (c *Completer) completeStream(ctx context.Context, req anthropic.MessageNew
 			switch event := event.ContentBlock.AsAny().(type) {
 			case anthropic.TextBlock:
 				delta := provider.Completion{
-					ID:     message.ID,
+					ID:    message.ID,
+					Model: c.model,
+
 					Reason: toCompletionResult(message.StopReason),
 
 					Message: &provider.Message{
@@ -115,7 +119,9 @@ func (c *Completer) completeStream(ctx context.Context, req anthropic.MessageNew
 
 			case anthropic.ToolUseBlock:
 				delta := provider.Completion{
-					ID:     message.ID,
+					ID:    message.ID,
+					Model: c.model,
+
 					Reason: toCompletionResult(message.StopReason),
 
 					Message: &provider.Message{
@@ -149,7 +155,8 @@ func (c *Completer) completeStream(ctx context.Context, req anthropic.MessageNew
 			switch event := event.Delta.AsAny().(type) {
 			case anthropic.TextDelta:
 				delta := provider.Completion{
-					ID: message.ID,
+					ID:    message.ID,
+					Model: c.model,
 
 					Message: &provider.Message{
 						Role: provider.MessageRoleAssistant,
@@ -168,7 +175,8 @@ func (c *Completer) completeStream(ctx context.Context, req anthropic.MessageNew
 
 			case anthropic.InputJSONDelta:
 				delta := provider.Completion{
-					ID: message.ID,
+					ID:    message.ID,
+					Model: c.model,
 
 					Message: &provider.Message{
 						Role: provider.MessageRoleAssistant,
@@ -201,7 +209,9 @@ func (c *Completer) completeStream(ctx context.Context, req anthropic.MessageNew
 
 		case anthropic.MessageStopEvent:
 			delta := provider.Completion{
-				ID:     message.ID,
+				ID:    message.ID,
+				Model: c.model,
+
 				Reason: toCompletionResult(message.StopReason),
 
 				Message: &provider.Message{

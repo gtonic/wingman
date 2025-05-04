@@ -110,10 +110,14 @@ func (h *Handler) handleChatCompletion(w http.ResponseWriter, r *http.Request) {
 
 				ID: completion.ID,
 
-				Model:   req.Model,
+				Model:   completion.Model,
 				Created: time.Now().Unix(),
 
 				Choices: []ChatCompletionChoice{},
+			}
+
+			if result.Model == "" {
+				result.Model = req.Model
 			}
 
 			if completion.Message != nil {
@@ -159,7 +163,7 @@ func (h *Handler) handleChatCompletion(w http.ResponseWriter, r *http.Request) {
 
 				ID: completion.ID,
 
-				Model:   req.Model,
+				Model:   completion.Model,
 				Created: time.Now().Unix(),
 
 				Choices: []ChatCompletionChoice{
@@ -173,6 +177,10 @@ func (h *Handler) handleChatCompletion(w http.ResponseWriter, r *http.Request) {
 				},
 			}
 
+			if result.Model == "" {
+				result.Model = req.Model
+			}
+
 			writeEventData(w, result)
 		}
 
@@ -182,10 +190,14 @@ func (h *Handler) handleChatCompletion(w http.ResponseWriter, r *http.Request) {
 
 				ID: completion.ID,
 
-				Model:   req.Model,
+				Model:   completion.Model,
 				Created: time.Now().Unix(),
 
 				Choices: []ChatCompletionChoice{},
+			}
+
+			if result.Model == "" {
+				result.Model = req.Model
 			}
 
 			result.Usage = &Usage{
@@ -211,10 +223,14 @@ func (h *Handler) handleChatCompletion(w http.ResponseWriter, r *http.Request) {
 
 			ID: completion.ID,
 
-			Model:   req.Model,
+			Model:   completion.Model,
 			Created: time.Now().Unix(),
 
 			Choices: []ChatCompletionChoice{},
+		}
+
+		if result.Model == "" {
+			result.Model = req.Model
 		}
 
 		if completion.Message != nil {

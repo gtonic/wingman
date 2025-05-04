@@ -13,7 +13,8 @@ type RenderOptions struct {
 }
 
 type Rendering struct {
-	ID string
+	ID    string
+	Model string
 
 	Content     []byte
 	ContentType string
