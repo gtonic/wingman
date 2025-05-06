@@ -240,7 +240,7 @@ func IndexDir(ctx context.Context, c *client.Client, index, root string) error {
 					},
 				}
 
-				if _, err := c.Documents.New(ctx, index, []client.Document{document}); err != nil {
+				if _, err := c.Documents.Index(ctx, index, []client.Document{document}); err != nil {
 					result = errors.Join(result, err)
 					return nil
 				}
