@@ -1,7 +1,10 @@
 package config
 
 import (
+	"crypto/tls"
 	"errors"
+	"net/http"
+	"net/url"
 	"strings"
 
 	"github.com/adrianliechti/wingman/pkg/tool"
@@ -54,7 +57,8 @@ type toolConfig struct {
 	Command string   `yaml:"command"`
 	Args    []string `yaml:"args"`
 
-	Vars map[string]string `yaml:"vars"`
+	Vars  map[string]string `yaml:"vars"`
+	Proxy *proxyConfig      `yaml:"proxy"`
 
 	Model    string `yaml:"model"`
 	Provider string `yaml:"provider"`
@@ -240,7 +244,29 @@ func customTool(cfg toolConfig, context toolContext) (tool.Provider, error) {
 }
 
 func bingTool(cfg toolConfig, context toolContext) (tool.Provider, error) {
-	index, err := bing.New(cfg.Token)
+	var options []bing.Option
+
+	if cfg.Proxy != nil && cfg.Proxy.URL != "" {
+		proxyURL, err := url.Parse(cfg.Proxy.URL)
+
+		if err != nil {
+			return nil, err
+		}
+
+		client := &http.Client{
+			Transport: &http.Transport{
+				Proxy: http.ProxyURL(proxyURL),
+
+				TLSClientConfig: &tls.Config{
+					InsecureSkipVerify: true,
+				},
+			},
+		}
+
+		options = append(options, bing.WithClient(client))
+	}
+
+	index, err := bing.New(cfg.Token, options...)
 
 	if err != nil {
 		return nil, err
