@@ -6,6 +6,7 @@ import (
 
 	"github.com/adrianliechti/wingman/pkg/extractor"
 	"github.com/adrianliechti/wingman/pkg/extractor/azure"
+	"github.com/adrianliechti/wingman/pkg/extractor/exa"
 	"github.com/adrianliechti/wingman/pkg/extractor/jina"
 	"github.com/adrianliechti/wingman/pkg/extractor/multi"
 	"github.com/adrianliechti/wingman/pkg/extractor/tavily"
@@ -104,6 +105,9 @@ func createExtractor(cfg extractorConfig, context extractorContext) (extractor.P
 	case "azure":
 		return azureExtractor(cfg)
 
+	case "exa":
+		return exaExtractor(cfg)
+
 	case "jina", "wingman-reader":
 		return jinaExtractor(cfg)
 
@@ -132,6 +136,12 @@ func azureExtractor(cfg extractorConfig) (extractor.Provider, error) {
 	}
 
 	return azure.New(cfg.URL, options...)
+}
+
+func exaExtractor(cfg extractorConfig) (extractor.Provider, error) {
+	var options []exa.Option
+
+	return exa.New(cfg.Token, options...)
 }
 
 func jinaExtractor(cfg extractorConfig) (extractor.Provider, error) {

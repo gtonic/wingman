@@ -24,6 +24,7 @@ import (
 	"github.com/adrianliechti/wingman/pkg/index"
 	"github.com/adrianliechti/wingman/pkg/index/bing"
 	"github.com/adrianliechti/wingman/pkg/index/duckduckgo"
+	"github.com/adrianliechti/wingman/pkg/index/exa"
 	"github.com/adrianliechti/wingman/pkg/index/searxng"
 	"github.com/adrianliechti/wingman/pkg/index/tavily"
 
@@ -176,6 +177,9 @@ func createTool(cfg toolConfig, context toolContext) (tool.Provider, error) {
 	case "duckduckgo":
 		return duckduckgoTool(cfg, context)
 
+	case "exa":
+		return exaTool(cfg, context)
+
 	case "searxng":
 		return searxngTool(cfg, context)
 
@@ -279,6 +283,18 @@ func bingTool(cfg toolConfig, context toolContext) (tool.Provider, error) {
 
 func duckduckgoTool(cfg toolConfig, context toolContext) (tool.Provider, error) {
 	index, err := duckduckgo.New()
+
+	if err != nil {
+		return nil, err
+	}
+
+	context.Index = index
+
+	return searchTool(cfg, context)
+}
+
+func exaTool(cfg toolConfig, context toolContext) (tool.Provider, error) {
+	index, err := exa.New(cfg.Token)
 
 	if err != nil {
 		return nil, err
