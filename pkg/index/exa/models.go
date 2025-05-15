@@ -8,7 +8,18 @@ type SearchRequest struct {
 
 type SearchContents struct {
 	Text bool `json:"text,omitempty"`
+
+	LiveCrawl LiveCrawl `json:"livecrawl,omitempty"`
 }
+
+type LiveCrawl string
+
+const (
+	LiveCrawlAuto     LiveCrawl = "auto"
+	LiveCrawlAlways   LiveCrawl = "always"
+	LiveCrawlNever    LiveCrawl = "never"
+	LiveCrawlFallback LiveCrawl = "fallback"
+)
 
 type SearchResponse struct {
 	Results []SearchResult `json:"results"`
