@@ -19,6 +19,8 @@ type connectorConfig struct {
 	ReceiveMode        string   `yaml:"receive_mode,omitempty"`         // "poll" or "websocket" (defaults to "poll")
 	WhitelistedNumbers []string `yaml:"whitelisted_numbers,omitempty"`  // Numbers allowed to interact, empty means only "Note to Self"
 	MaxHistoryMessages int      `yaml:"max_history_messages,omitempty"` // Max messages (user + assistant) to keep in history (e.g., 20 for 10 turns)
+	HistoryStorageType string   `yaml:"history_storage_type,omitempty"` // "memory" or "sqlite" (defaults to "memory")
+	HistorySQLitePath  string   `yaml:"history_sqlite_path,omitempty"`  // Path to SQLite DB file, e.g., "./signal_history.db"
 }
 
 func (c *Config) registerConnectors(f *configFile) error {
@@ -92,7 +94,9 @@ func createSignalConnector(id string, cfg connectorConfig, appConfig *Config) (c
 		PollInterval:       pollInterval,
 		ReceiveMode:        cfg.ReceiveMode,
 		WhitelistedNumbers: cfg.WhitelistedNumbers,
-		MaxHistoryMessages: cfg.MaxHistoryMessages, // Pass max history messages
+		MaxHistoryMessages: cfg.MaxHistoryMessages,
+		HistoryStorageType: cfg.HistoryStorageType,
+		HistorySQLitePath:  cfg.HistorySQLitePath, // Pass SQLite DB path
 	}
 
 	return signal.New(id, signalCfg)
