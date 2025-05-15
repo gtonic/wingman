@@ -238,7 +238,7 @@ func mcpTool(cfg toolConfig, context toolContext) (tool.Provider, error) {
 		return mcp.NewStdio(cfg.Command, env, cfg.Args)
 	}
 
-	return mcp.NewHttp(cfg.URL, cfg.Vars)
+	return mcp.NewSSE(cfg.URL, cfg.Vars)
 }
 
 func customTool(cfg toolConfig, context toolContext) (tool.Provider, error) {

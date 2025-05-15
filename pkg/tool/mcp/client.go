@@ -31,7 +31,25 @@ func NewStdio(command string, env, args []string) (*Client, error) {
 	}, nil
 }
 
-func NewHttp(url string, headers map[string]string) (*Client, error) {
+func NewSSE(url string, headers map[string]string) (*Client, error) {
+	var options []transport.ClientOption
+
+	if len(headers) > 0 {
+		options = append(options, transport.WithHeaders(headers))
+	}
+
+	tr, err := transport.NewSSE(url, options...)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &Client{
+		client: client.NewClient(tr),
+	}, nil
+}
+
+func NewHTTP(url string, headers map[string]string) (*Client, error) {
 	var options []transport.StreamableHTTPCOption
 
 	if len(headers) > 0 {

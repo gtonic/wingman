@@ -44,7 +44,8 @@ func (c *Client) Query(ctx context.Context, query string, options *index.QueryOp
 		Query: query,
 
 		Contents: SearchContents{
-			Text: true,
+			Text:      true,
+			LiveCrawl: LiveCrawlAlways,
 		},
 	})
 
