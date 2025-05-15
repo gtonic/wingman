@@ -6,6 +6,7 @@ import (
 
 	"github.com/adrianliechti/wingman/pkg/translator"
 	"github.com/adrianliechti/wingman/pkg/translator/azure"
+	"github.com/adrianliechti/wingman/pkg/translator/custom"
 	"github.com/adrianliechti/wingman/pkg/translator/deepl"
 
 	"golang.org/x/time/rate"
@@ -86,6 +87,9 @@ func createTranslator(cfg translatorConfig, context translatorContext) (translat
 	case "deepl":
 		return deeplTranslator(cfg, context)
 
+	case "custom":
+		return customTranslator(cfg, context)
+
 	default:
 		return nil, errors.New("invalid translator type: " + cfg.Type)
 	}
@@ -109,4 +113,10 @@ func deeplTranslator(cfg translatorConfig, context translatorContext) (translato
 	}
 
 	return deepl.NewTranslator(cfg.URL, options...)
+}
+
+func customTranslator(cfg translatorConfig, context translatorContext) (translator.Provider, error) {
+	var options []custom.Option
+
+	return custom.New(cfg.URL, options...)
 }

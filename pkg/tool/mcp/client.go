@@ -22,32 +22,30 @@ type Client struct {
 }
 
 func NewStdio(command string, env, args []string) (*Client, error) {
-	client, err := client.NewStdioMCPClient(command, env, args...)
+	tr := transport.NewStdio(command, env, args...)
 
-	if err != nil {
-		return nil, err
-	}
+	client := client.NewClient(tr)
 
 	return &Client{
 		client: client,
 	}, nil
 }
 
-func NewSSE(url string, headers map[string]string) (*Client, error) {
-	var options []transport.ClientOption
+func NewHttp(url string, headers map[string]string) (*Client, error) {
+	var options []transport.StreamableHTTPCOption
 
 	if len(headers) > 0 {
-		options = append(options, transport.WithHeaders(headers))
+		options = append(options, transport.WithHTTPHeaders(headers))
 	}
 
-	client, err := client.NewSSEMCPClient(url, options...)
+	tr, err := transport.NewStreamableHTTP(url, options...)
 
 	if err != nil {
 		return nil, err
 	}
 
 	return &Client{
-		client: client,
+		client: client.NewClient(tr),
 	}, nil
 }
 
@@ -130,6 +128,7 @@ func (c *Client) Execute(ctx context.Context, name string, parameters map[string
 
 		case mcp.EmbeddedResource:
 			return nil, errors.New("embedded resource not supported")
+
 		default:
 			return nil, errors.New("unknown content type")
 		}
