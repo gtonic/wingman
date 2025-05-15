@@ -36,6 +36,8 @@ type Connector struct {
 	receiveMode           string              // "poll" or "websocket"
 	whitelistedNumbersMap map[string]struct{} // For efficient lookup
 	isWhitelistActive     bool
+	conversationHistories map[string][]provider.Message
+	maxHistoryMessages    int
 }
 
 // Config for the Signal connector
@@ -46,6 +48,7 @@ type Config struct {
 	PollInterval       time.Duration
 	ReceiveMode        string   // "poll" or "websocket"
 	WhitelistedNumbers []string // New field for whitelisted numbers
+	MaxHistoryMessages int      // Max messages (user + assistant) to keep
 }
 
 func New(id string, cfg Config) (*Connector, error) {
@@ -95,6 +98,12 @@ func New(id string, cfg Config) (*Connector, error) {
 		log.Printf("Signal connector (ID: %s): Whitelist is empty. Defaulting to 'Note to Self' only mode.", id)
 	}
 
+	maxHistory := cfg.MaxHistoryMessages
+	if maxHistory <= 0 {
+		maxHistory = 20 // Default to keeping last 20 messages (10 turns)
+		log.Printf("Signal connector (ID: %s): MaxHistoryMessages not set or invalid, defaulting to %d", id, maxHistory)
+	}
+
 	return &Connector{
 		id:                    id,
 		client:                http.DefaultClient, // HTTP client still needed for sending replies
@@ -105,6 +114,8 @@ func New(id string, cfg Config) (*Connector, error) {
 		receiveMode:           receiveMode,
 		whitelistedNumbersMap: whitelistedMap,
 		isWhitelistActive:     isWhitelistActive,
+		conversationHistories: make(map[string][]provider.Message),
+		maxHistoryMessages:    maxHistory,
 	}, nil
 }
 
@@ -350,103 +361,127 @@ func (c *Connector) processReceivedMessagePayload(ctx context.Context, payload [
 
 	// Process the actual message content
 	var sender, messageText string
-	var shouldProcessForLLM bool
+	var isNoteToSelf, isDataMessageFromOther bool
 
 	if receivedMsg.Envelope != nil {
-		// Case 1: "Note to Self" - A SentMessage sync where destination is self
+		// Check for "Note to Self" via SentMessage sync
 		if receivedMsg.Envelope.SyncMessage != nil &&
 			receivedMsg.Envelope.SyncMessage.SentMessage != nil &&
 			receivedMsg.Envelope.SyncMessage.SentMessage.Message != "" &&
-			receivedMsg.Envelope.Source == c.accountNumber && // Source of the sync event is self (i.e., this account sent it)
-			(receivedMsg.Envelope.SyncMessage.SentMessage.Destination == c.accountNumber || // Destination was self by number
-				receivedMsg.Envelope.SyncMessage.SentMessage.DestinationNumber == c.accountNumber) { // Destination was self by number (alt field)
+			receivedMsg.Envelope.Source == c.accountNumber &&
+			(receivedMsg.Envelope.SyncMessage.SentMessage.Destination == c.accountNumber || receivedMsg.Envelope.SyncMessage.SentMessage.DestinationNumber == c.accountNumber) {
 
-			sender = receivedMsg.Envelope.Source // Sender is self
+			sender = receivedMsg.Envelope.Source
 			messageText = receivedMsg.Envelope.SyncMessage.SentMessage.Message
-			shouldProcessForLLM = true // Always process "Note to Self"
+			isNoteToSelf = true
 			log.Printf("Signal connector (ID: %s): Identified 'Note to Self' (SentMessage sync) from %s. Text: \"%s\"", c.id, sender, messageText)
 
-			// Case 2: Standard incoming DataMessage
+			// Check for standard incoming DataMessage
 		} else if receivedMsg.Envelope.DataMessage != nil && receivedMsg.Envelope.DataMessage.Message != "" {
 			if receivedMsg.Envelope.Source != "" {
 				sender = receivedMsg.Envelope.Source
 				messageText = receivedMsg.Envelope.DataMessage.Message
-
-				if sender == c.accountNumber {
-					// This is a DataMessage from self to someone else (or an echo if self is also a recipient in a group).
-					// Generally, we don't want the bot to respond to its own outgoing messages to others.
-					// "Note to Self" is handled above by checking SentMessage.Destination.
-					log.Printf("Signal connector (ID: %s): Ignoring incoming DataMessage originating from self to other(s) (%s). Text: \"%s\"", c.id, sender, messageText)
-					shouldProcessForLLM = false
+				if sender != c.accountNumber {
+					isDataMessageFromOther = true
+					// Whitelist check will happen below
 				} else {
-					// Message from an external sender
-					if !c.isWhitelistActive { // Whitelist is NOT active, means default "Note to Self" only mode
-						log.Printf("Signal connector (ID: %s): Whitelist is not active (default 'Note to Self' only mode). Ignoring message from external sender %s.", c.id, sender)
-						shouldProcessForLLM = false
-					} else {
-						if _, isWhitelisted := c.whitelistedNumbersMap[sender]; isWhitelisted {
-							log.Printf("Signal connector (ID: %s): Sender %s is whitelisted. Processing message. Text: \"%s\"", c.id, sender, messageText)
-							shouldProcessForLLM = true
-						} else {
-							log.Printf("Signal connector (ID: %s): Sender %s is not in whitelist. Ignoring message. Text: \"%s\"", c.id, sender, messageText)
-							shouldProcessForLLM = false
-						}
-					}
+					// DataMessage from self to someone else, or echo. Not a "Note to Self" for LLM processing.
+					log.Printf("Signal connector (ID: %s): Ignoring incoming DataMessage originating from self to other(s) (%s). Text: \"%s\"", c.id, sender, messageText)
 				}
 			} else {
 				log.Printf("Warning: Signal DataMessage (ID: %s) received without clear sender in envelope. DataMessage: %+v", c.id, receivedMsg.Envelope.DataMessage)
-				shouldProcessForLLM = false // Cannot reply without sender
 			}
 		}
 	}
 
-	// Note: RawMessage fallback logic is removed as it's less reliable and structured messages should be prioritized.
-	// If necessary, specific handling for RawMessage with whitelist checks could be added.
+	shouldProcessForLLM := false
+	if isNoteToSelf {
+		shouldProcessForLLM = true // Always process "Note to Self"
+	} else if isDataMessageFromOther {
+		if !c.isWhitelistActive {
+			log.Printf("Signal connector (ID: %s): Whitelist is not active (default 'Note to Self' only mode). Ignoring message from external sender %s.", c.id, sender)
+		} else {
+			if _, isWhitelisted := c.whitelistedNumbersMap[sender]; isWhitelisted {
+				log.Printf("Signal connector (ID: %s): Sender %s is whitelisted. Processing message. Text: \"%s\"", c.id, sender, messageText)
+				shouldProcessForLLM = true
+			} else {
+				log.Printf("Signal connector (ID: %s): Sender %s is not in whitelist. Ignoring message. Text: \"%s\"", c.id, sender, messageText)
+			}
+		}
+	}
 
 	if !shouldProcessForLLM {
 		// Log if it was some other kind of message we didn't explicitly handle or ignore above
-		if sender == "" && messageText == "" && (receivedMsg.Envelope == nil || (receivedMsg.Envelope.DataMessage == nil && receivedMsg.Envelope.SyncMessage == nil && receivedMsg.Envelope.ReceiptMessage == nil)) {
+		if sender == "" && messageText == "" && (receivedMsg.Envelope == nil || (receivedMsg.Envelope.DataMessage == nil && receivedMsg.Envelope.SyncMessage == nil && receivedMsg.Envelope.ReceiptMessage == nil)) && receivedMsg.CallMessage == nil {
 			log.Printf("Signal connector (ID: %s): Received unhandled or non-text event type. Payload: %s", c.id, string(payload))
 		}
-		return nil // Not an error, just nothing to do for the LLM for this message
-	}
-
-	// If sender or messageText is still empty here, it's an issue, but shouldProcessForLLM should be false.
-	if sender == "" || messageText == "" {
-		log.Printf("Signal connector (ID: %s): Internal logic error - shouldProcessForLLM was true, but sender or messageText is empty. Payload: %s", c.id, string(payload))
 		return nil
 	}
 
-	log.Printf("Signal connector (ID: %s): Processing message from %s: \"%s\" for LLM.", c.id, sender, messageText)
-
-	messagesToLLM := []provider.Message{
-		provider.UserMessage(messageText),
+	// At this point, sender and messageText should be populated if shouldProcessForLLM is true.
+	if sender == "" || messageText == "" { // Should not happen if shouldProcessForLLM is true
+		log.Printf("Signal connector (ID: %s): Internal logic error - sender or messageText empty despite shouldProcessForLLM=true. Payload: %s", c.id, string(payload))
+		return nil
 	}
-	log.Printf("Signal connector (ID: %s): Sending to LLM for sender %s: %+v", c.id, sender, messagesToLLM)
+
+	log.Printf("Signal connector (ID: %s): Preparing to send to LLM. Sender: %s, Message: \"%s\"", c.id, sender, messageText)
+
+	// Retrieve or initialize conversation history
+	history, _ := c.conversationHistories[sender] // ok is false if sender is new
+
+	// Add current user message to history
+	history = append(history, provider.UserMessage(messageText))
+
+	// Truncate history if it exceeds max length
+	if len(history) > c.maxHistoryMessages {
+		startIndex := len(history) - c.maxHistoryMessages
+		history = history[startIndex:]
+		log.Printf("Signal connector (ID: %s): History for %s truncated to last %d messages.", c.id, sender, c.maxHistoryMessages)
+	}
+
+	log.Printf("Signal connector (ID: %s): Sending to LLM for sender %s (history length %d): %+v", c.id, sender, len(history), history)
 
 	completeCtx, cancelComplete := context.WithTimeout(ctx, 30*time.Second)
 	defer cancelComplete()
 
-	llmResponse, err := c.completer.Complete(completeCtx, messagesToLLM, nil)
+	llmResponse, err := c.completer.Complete(completeCtx, history, nil)
 	if err != nil {
 		log.Printf("Error from LLM completer for Signal message (ID: %s, sender: %s): %v", c.id, sender, err)
+		// Don't save user message if LLM fails, to avoid cluttering history with unreplied messages? Or save it?
+		// For now, we'll save it, as it was part of the attempt.
+		c.conversationHistories[sender] = history
 		return err // Propagate LLM error
 	}
 
-	if llmResponse != nil && llmResponse.Message != nil {
+	if llmResponse != nil && llmResponse.Message != nil && llmResponse.Message.Text() != "" {
 		replyText := llmResponse.Message.Text()
 		log.Printf("Signal connector (ID: %s): Received from LLM for sender %s: \"%s\"", c.id, sender, replyText)
-		if replyText != "" {
-			if err := c.sendSignalMessage(ctx, sender, replyText); err != nil {
-				log.Printf("Error sending Signal reply (ID: %s, to: %s): %v", c.id, sender, err)
-				return err // Propagate send error
-			}
-			log.Printf("Signal connector (ID: %s): Successfully sent reply to %s: \"%s\"", c.id, sender, replyText)
-		} else {
+
+		// Add assistant's reply to history
+		history = append(history, *llmResponse.Message) // llmResponse.Message is a pointer
+
+		// Truncate history again if it exceeds max length after adding assistant's reply
+		if len(history) > c.maxHistoryMessages {
+			startIndex := len(history) - c.maxHistoryMessages
+			history = history[startIndex:]
+			log.Printf("Signal connector (ID: %s): History for %s (after assistant reply) truncated to last %d messages.", c.id, sender, c.maxHistoryMessages)
+		}
+		c.conversationHistories[sender] = history // Save updated history
+
+		if err := c.sendSignalMessage(ctx, sender, replyText); err != nil {
+			log.Printf("Error sending Signal reply (ID: %s, to: %s): %v", c.id, sender, err)
+			return err // Propagate send error
+		}
+		log.Printf("Signal connector (ID: %s): Successfully sent reply to %s: \"%s\"", c.id, sender, replyText)
+
+	} else {
+		if llmResponse == nil || llmResponse.Message == nil {
+			log.Printf("Signal connector (ID: %s): LLM response or message was nil for sender %s.", c.id, sender)
+		} else { // llmResponse.Message.Text() is empty
 			log.Printf("Signal connector (ID: %s): LLM provided empty reply for sender %s. Nothing to send.", c.id, sender)
 		}
-	} else {
-		log.Printf("Signal connector (ID: %s): LLM response or message was nil for sender %s.", c.id, sender)
+		// Save history even if LLM response was empty/nil, as user message was processed
+		c.conversationHistories[sender] = history
 	}
 	return nil
 }

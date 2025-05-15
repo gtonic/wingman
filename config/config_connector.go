@@ -15,9 +15,10 @@ type connectorConfig struct {
 	URL                string   `yaml:"url,omitempty"`
 	AccountNumber      string   `yaml:"account_number,omitempty"`
 	Completer          string   `yaml:"completer,omitempty"`
-	PollInterval       string   `yaml:"poll_interval,omitempty"`       // e.g., "5s", "1m", used for poll mode
-	ReceiveMode        string   `yaml:"receive_mode,omitempty"`        // "poll" or "websocket" (defaults to "poll")
-	WhitelistedNumbers []string `yaml:"whitelisted_numbers,omitempty"` // Numbers allowed to interact, empty means only "Note to Self"
+	PollInterval       string   `yaml:"poll_interval,omitempty"`        // e.g., "5s", "1m", used for poll mode
+	ReceiveMode        string   `yaml:"receive_mode,omitempty"`         // "poll" or "websocket" (defaults to "poll")
+	WhitelistedNumbers []string `yaml:"whitelisted_numbers,omitempty"`  // Numbers allowed to interact, empty means only "Note to Self"
+	MaxHistoryMessages int      `yaml:"max_history_messages,omitempty"` // Max messages (user + assistant) to keep in history (e.g., 20 for 10 turns)
 }
 
 func (c *Config) registerConnectors(f *configFile) error {
@@ -90,7 +91,8 @@ func createSignalConnector(id string, cfg connectorConfig, appConfig *Config) (c
 		Completer:          completer,
 		PollInterval:       pollInterval,
 		ReceiveMode:        cfg.ReceiveMode,
-		WhitelistedNumbers: cfg.WhitelistedNumbers, // Pass the whitelist
+		WhitelistedNumbers: cfg.WhitelistedNumbers,
+		MaxHistoryMessages: cfg.MaxHistoryMessages, // Pass max history messages
 	}
 
 	return signal.New(id, signalCfg)
