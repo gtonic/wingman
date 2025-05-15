@@ -2,11 +2,13 @@ package config
 
 import (
 	"bytes"
+	"errors"
 	"os"
 
 	"github.com/adrianliechti/wingman/pkg/api"
 	"github.com/adrianliechti/wingman/pkg/authorizer"
 	"github.com/adrianliechti/wingman/pkg/chain"
+	"github.com/adrianliechti/wingman/pkg/connector"
 	"github.com/adrianliechti/wingman/pkg/extractor"
 	"github.com/adrianliechti/wingman/pkg/index"
 	"github.com/adrianliechti/wingman/pkg/provider"
@@ -43,7 +45,42 @@ type Config struct {
 	tools  map[string]tool.Provider
 	chains map[string]chain.Provider
 
+	connectors map[string]connector.Provider
+
 	APIs map[string]api.Provider
+}
+
+func (c *Config) RegisterConnector(id string, p connector.Provider) {
+	if c.connectors == nil {
+		c.connectors = make(map[string]connector.Provider)
+	}
+
+	c.connectors[id] = p
+}
+
+func (c *Config) Connector(id string) (connector.Provider, error) {
+	if c.connectors != nil {
+		if p, ok := c.connectors[id]; ok {
+			return p, nil
+		}
+	}
+
+	return nil, errors.New("connector not found: " + id)
+}
+
+// AllConnectors returns a map of all registered connectors.
+// It returns a copy to prevent external modification of the internal map.
+func (c *Config) AllConnectors() map[string]connector.Provider {
+	if c.connectors == nil {
+		return make(map[string]connector.Provider)
+	}
+
+	// Return a copy
+	connectorsCopy := make(map[string]connector.Provider, len(c.connectors))
+	for id, p := range c.connectors {
+		connectorsCopy[id] = p
+	}
+	return connectorsCopy
 }
 
 func Parse(path string) (*Config, error) {
@@ -97,6 +134,10 @@ func Parse(path string) (*Config, error) {
 		return nil, err
 	}
 
+	if err := c.registerConnectors(file); err != nil {
+		return nil, err
+	}
+
 	if err := c.registerAPI(file); err != nil {
 		return nil, err
 	}
@@ -119,6 +160,8 @@ type configFile struct {
 	Chains yaml.Node `yaml:"chains"`
 
 	Routers yaml.Node `yaml:"routers"`
+
+	Connectors yaml.Node `yaml:"connectors,omitempty"`
 
 	APIs yaml.Node `yaml:"apis"`
 }
