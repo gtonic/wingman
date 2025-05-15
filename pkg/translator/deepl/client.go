@@ -20,7 +20,7 @@ type Client struct {
 	token string
 }
 
-func NewTranslator(url string, options ...Option) (*Client, error) {
+func New(url string, options ...Option) (*Client, error) {
 	if url == "" {
 		url = "https://api-free.deepl.com"
 	}

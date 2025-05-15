@@ -16,69 +16,43 @@ import (
 var _ tool.Provider = (*Client)(nil)
 
 type Client struct {
-	client *client.Client
-
-	serverInfo *mcp.Implementation
+	transportFn func() (transport.Interface, error)
 }
 
 func NewStdio(command string, env, args []string) (*Client, error) {
-	tr := transport.NewStdio(command, env, args...)
-
-	client := client.NewClient(tr)
-
 	return &Client{
-		client: client,
+		transportFn: func() (transport.Interface, error) {
+			return transport.NewStdio(command, env, args...), nil
+		},
 	}, nil
 }
 
 func NewSSE(url string, headers map[string]string) (*Client, error) {
-	var options []transport.ClientOption
-
-	if len(headers) > 0 {
-		options = append(options, transport.WithHeaders(headers))
-	}
-
-	tr, err := transport.NewSSE(url, options...)
-
-	if err != nil {
-		return nil, err
-	}
-
 	return &Client{
-		client: client.NewClient(tr),
+		transportFn: func() (transport.Interface, error) {
+			var options []transport.ClientOption
+
+			if len(headers) > 0 {
+				options = append(options, transport.WithHeaders(headers))
+			}
+
+			return transport.NewSSE(url, options...)
+		},
 	}, nil
-}
-
-func NewHTTP(url string, headers map[string]string) (*Client, error) {
-	var options []transport.StreamableHTTPCOption
-
-	if len(headers) > 0 {
-		options = append(options, transport.WithHTTPHeaders(headers))
-	}
-
-	tr, err := transport.NewStreamableHTTP(url, options...)
-
-	if err != nil {
-		return nil, err
-	}
-
-	return &Client{
-		client: client.NewClient(tr),
-	}, nil
-}
-
-func (c *Client) Close() error {
-	return c.client.Close()
 }
 
 func (c *Client) Tools(ctx context.Context) ([]tool.Tool, error) {
-	if err := c.ensureInit(ctx); err != nil {
+	client, err := c.createClient(ctx)
+
+	if err != nil {
 		return nil, err
 	}
 
+	defer client.Close()
+
 	req := mcp.ListToolsRequest{}
 
-	resp, err := c.client.ListTools(ctx, req)
+	resp, err := client.ListTools(ctx, req)
 
 	if err != nil {
 		return nil, err
@@ -117,15 +91,19 @@ func (c *Client) Tools(ctx context.Context) ([]tool.Tool, error) {
 }
 
 func (c *Client) Execute(ctx context.Context, name string, parameters map[string]any) (any, error) {
-	if err := c.ensureInit(ctx); err != nil {
+	client, err := c.createClient(ctx)
+
+	if err != nil {
 		return nil, err
 	}
+
+	defer client.Close()
 
 	req := mcp.CallToolRequest{}
 	req.Params.Name = name
 	req.Params.Arguments = parameters
 
-	resp, err := c.client.CallTool(ctx, req)
+	resp, err := client.CallTool(ctx, req)
 
 	if err != nil {
 		return nil, err
@@ -155,13 +133,18 @@ func (c *Client) Execute(ctx context.Context, name string, parameters map[string
 	return nil, errors.New("no content returned")
 }
 
-func (c *Client) ensureInit(ctx context.Context) error {
-	if c.serverInfo != nil {
-		return nil
+func (c *Client) createClient(ctx context.Context) (*client.Client, error) {
+	tr, err := c.transportFn()
+
+	if err != nil {
+		return nil, err
 	}
 
-	if err := c.client.Start(ctx); err != nil {
-		return err
+	client := client.NewClient(tr)
+
+	if err := client.Start(ctx); err != nil {
+		client.Close()
+		return nil, err
 	}
 
 	req := mcp.InitializeRequest{}
@@ -171,13 +154,14 @@ func (c *Client) ensureInit(ctx context.Context) error {
 		Version: "1.0.0",
 	}
 
-	resp, err := c.client.Initialize(ctx, req)
+	resp, err := client.Initialize(ctx, req)
 
 	if err != nil {
-		return err
+		client.Close()
+		return nil, err
 	}
 
-	c.serverInfo = &resp.ServerInfo
+	_ = resp
 
-	return nil
+	return client, nil
 }
