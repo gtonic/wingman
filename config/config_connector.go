@@ -22,6 +22,7 @@ type connectorConfig struct {
 	HistoryStorageType   string   `yaml:"history_storage_type,omitempty"`   // "memory" or "sqlite" (defaults to "memory")
 	HistorySQLitePath    string   `yaml:"history_sqlite_path,omitempty"`    // Path to SQLite DB file, e.g., "./signal_history.db"
 	MessagePrefixTrigger string   `yaml:"message_prefix_trigger,omitempty"` // Optional prefix to trigger LLM processing (e.g., "Q")
+	AccountUsername      string   `yaml:"account_username,omitempty"`       // Optional: Bot's Signal Username (e.g., name.01) to use as sender for group messages
 }
 
 func (c *Config) registerConnectors(f *configFile) error {
@@ -98,7 +99,8 @@ func createSignalConnector(id string, cfg connectorConfig, appConfig *Config) (c
 		MaxHistoryMessages:   cfg.MaxHistoryMessages,
 		HistoryStorageType:   cfg.HistoryStorageType,
 		HistorySQLitePath:    cfg.HistorySQLitePath,
-		MessagePrefixTrigger: cfg.MessagePrefixTrigger, // Pass prefix trigger
+		MessagePrefixTrigger: cfg.MessagePrefixTrigger,
+		AccountUsername:      cfg.AccountUsername, // Pass account username
 	}
 
 	return signal.New(id, signalCfg)
