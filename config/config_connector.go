@@ -12,15 +12,16 @@ type connectorConfig struct {
 	Type string `yaml:"type"`
 
 	// For Signal Connector
-	URL                string   `yaml:"url,omitempty"`
-	AccountNumber      string   `yaml:"account_number,omitempty"`
-	Completer          string   `yaml:"completer,omitempty"`
-	PollInterval       string   `yaml:"poll_interval,omitempty"`        // e.g., "5s", "1m", used for poll mode
-	ReceiveMode        string   `yaml:"receive_mode,omitempty"`         // "poll" or "websocket" (defaults to "poll")
-	WhitelistedNumbers []string `yaml:"whitelisted_numbers,omitempty"`  // Numbers allowed to interact, empty means only "Note to Self"
-	MaxHistoryMessages int      `yaml:"max_history_messages,omitempty"` // Max messages (user + assistant) to keep in history (e.g., 20 for 10 turns)
-	HistoryStorageType string   `yaml:"history_storage_type,omitempty"` // "memory" or "sqlite" (defaults to "memory")
-	HistorySQLitePath  string   `yaml:"history_sqlite_path,omitempty"`  // Path to SQLite DB file, e.g., "./signal_history.db"
+	URL                  string   `yaml:"url,omitempty"`
+	AccountNumber        string   `yaml:"account_number,omitempty"`
+	Completer            string   `yaml:"completer,omitempty"`
+	PollInterval         string   `yaml:"poll_interval,omitempty"`          // e.g., "5s", "1m", used for poll mode
+	ReceiveMode          string   `yaml:"receive_mode,omitempty"`           // "poll" or "websocket" (defaults to "poll")
+	WhitelistedNumbers   []string `yaml:"whitelisted_numbers,omitempty"`    // Numbers allowed to interact, empty means only "Note to Self"
+	MaxHistoryMessages   int      `yaml:"max_history_messages,omitempty"`   // Max messages (user + assistant) to keep in history (e.g., 20 for 10 turns)
+	HistoryStorageType   string   `yaml:"history_storage_type,omitempty"`   // "memory" or "sqlite" (defaults to "memory")
+	HistorySQLitePath    string   `yaml:"history_sqlite_path,omitempty"`    // Path to SQLite DB file, e.g., "./signal_history.db"
+	MessagePrefixTrigger string   `yaml:"message_prefix_trigger,omitempty"` // Optional prefix to trigger LLM processing (e.g., "Q")
 }
 
 func (c *Config) registerConnectors(f *configFile) error {
@@ -88,15 +89,16 @@ func createSignalConnector(id string, cfg connectorConfig, appConfig *Config) (c
 	}
 
 	signalCfg := signal.Config{
-		URL:                cfg.URL,
-		AccountNumber:      cfg.AccountNumber,
-		Completer:          completer,
-		PollInterval:       pollInterval,
-		ReceiveMode:        cfg.ReceiveMode,
-		WhitelistedNumbers: cfg.WhitelistedNumbers,
-		MaxHistoryMessages: cfg.MaxHistoryMessages,
-		HistoryStorageType: cfg.HistoryStorageType,
-		HistorySQLitePath:  cfg.HistorySQLitePath, // Pass SQLite DB path
+		URL:                  cfg.URL,
+		AccountNumber:        cfg.AccountNumber,
+		Completer:            completer,
+		PollInterval:         pollInterval,
+		ReceiveMode:          cfg.ReceiveMode,
+		WhitelistedNumbers:   cfg.WhitelistedNumbers,
+		MaxHistoryMessages:   cfg.MaxHistoryMessages,
+		HistoryStorageType:   cfg.HistoryStorageType,
+		HistorySQLitePath:    cfg.HistorySQLitePath,
+		MessagePrefixTrigger: cfg.MessagePrefixTrigger, // Pass prefix trigger
 	}
 
 	return signal.New(id, signalCfg)

@@ -51,18 +51,20 @@ type Connector struct {
 	historyStorageType    string
 	historySQLitePath     string
 	sqlDB                 *sql.DB
+	messagePrefixTrigger  string
 }
 
 type Config struct {
-	URL                string
-	AccountNumber      string
-	Completer          provider.Completer
-	PollInterval       time.Duration
-	ReceiveMode        string
-	WhitelistedNumbers []string
-	MaxHistoryMessages int
-	HistoryStorageType string
-	HistorySQLitePath  string
+	URL                  string
+	AccountNumber        string
+	Completer            provider.Completer
+	PollInterval         time.Duration
+	ReceiveMode          string
+	WhitelistedNumbers   []string
+	MaxHistoryMessages   int
+	HistoryStorageType   string
+	HistorySQLitePath    string
+	MessagePrefixTrigger string
 }
 
 func New(id string, cfg Config) (*Connector, error) {
@@ -128,7 +130,7 @@ func New(id string, cfg Config) (*Connector, error) {
 		if err != nil {
 			log.Printf("Signal connector (ID: %s): Failed to open SQLite DB at %s: %v. Falling back to memory.", id, actualSQLitePath, err)
 			historyStorage = "memory"
-			db = nil // Ensure db is nil if open failed
+			db = nil
 		} else {
 			log.Printf("Signal connector (ID: %s): Opened SQLite DB at %s", id, actualSQLitePath)
 			if errPing := db.Ping(); errPing != nil {
@@ -138,6 +140,11 @@ func New(id string, cfg Config) (*Connector, error) {
 				historyStorage = "memory"
 			}
 		}
+	}
+
+	messagePrefixTrigger := strings.TrimSpace(cfg.MessagePrefixTrigger)
+	if messagePrefixTrigger != "" {
+		log.Printf("Signal connector (ID: %s): Message prefix trigger enabled: '%s'", id, messagePrefixTrigger)
 	}
 
 	return &Connector{
@@ -155,6 +162,7 @@ func New(id string, cfg Config) (*Connector, error) {
 		historyStorageType:    historyStorage,
 		historySQLitePath:     actualSQLitePath,
 		sqlDB:                 db,
+		messagePrefixTrigger:  messagePrefixTrigger,
 	}, nil
 }
 
@@ -185,7 +193,7 @@ func (c *Connector) Close() error {
 }
 
 func (c *Connector) Start(ctx context.Context) error {
-	log.Printf("Starting Signal connector (ID: %s), account: %s, mode: %s, URL: %s, poll_interval: %v, history: %s", c.id, c.accountNumber, c.receiveMode, c.url, c.pollInterval, c.historyStorageType)
+	log.Printf("Starting Signal connector (ID: %s), account: %s, mode: %s, URL: %s, poll_interval: %v, history: %s, prefix: '%s'", c.id, c.accountNumber, c.receiveMode, c.url, c.pollInterval, c.historyStorageType, c.messagePrefixTrigger)
 
 	if c.historyStorageType == "sqlite" {
 		if c.sqlDB == nil {
@@ -209,15 +217,9 @@ func (c *Connector) Start(ctx context.Context) error {
 	}
 
 	log.Printf("Signal connector (ID: %s): Using POLL mode.", c.id)
-	// ... (rest of polling logic remains the same as before) ...
-	log.Printf("Signal connector (ID: %s): About to create ticker for POLL mode. Interval value: %v (type: %T)", c.id, c.pollInterval, c.pollInterval)
 	ticker := time.NewTicker(c.pollInterval)
-	log.Printf("Signal connector (ID: %s): Ticker creation attempted for POLL mode. Ticker object: %p", c.id, ticker)
-
 	defer ticker.Stop()
-	log.Printf("Signal connector (ID: %s): Defer ticker.Stop() registered for POLL mode.", c.id)
-
-	log.Printf("Signal connector (ID: %s): Successfully created ticker for POLL mode. Entering main select loop...", c.id)
+	log.Printf("Signal connector (ID: %s): Ticker created for POLL mode. Interval: %v", c.id, c.pollInterval)
 
 	for {
 		select {
@@ -225,7 +227,7 @@ func (c *Connector) Start(ctx context.Context) error {
 			log.Printf("Stopping Signal connector (ID: %s) (POLL mode): context cancelled: %v", c.id, ctx.Err())
 			return ctx.Err()
 		case tickTime := <-ticker.C:
-			log.Printf("Signal connector (ID: %s) (POLL mode): Tick received at %v, attempting to poll for messages...", c.id, tickTime)
+			log.Printf("Signal connector (ID: %s) (POLL mode): Tick received at %v, attempting to poll...", c.id, tickTime)
 			if err := c.pollAndProcessMessages(ctx); err != nil {
 				log.Printf("Error polling Signal messages (ID: %s) (POLL mode): %v", c.id, err)
 			}
@@ -234,7 +236,6 @@ func (c *Connector) Start(ctx context.Context) error {
 }
 
 func (c *Connector) pollAndProcessMessages(ctx context.Context) error {
-	// ... (this function remains largely the same, calls processReceivedMessagePayload)
 	receiveURL, err := url.JoinPath(c.url, "/v1/receive/", c.accountNumber)
 	if err != nil {
 		return fmt.Errorf("failed to create receive URL: %w", err)
@@ -273,7 +274,6 @@ func (c *Connector) pollAndProcessMessages(ctx context.Context) error {
 }
 
 func (c *Connector) runWebSocketListener(ctx context.Context) error {
-	// ... (this function remains largely the same, calls processReceivedMessagePayload) ...
 	wsScheme := "ws"
 	if strings.HasPrefix(c.url, "https://") {
 		wsScheme = "wss"
@@ -294,7 +294,7 @@ func (c *Connector) runWebSocketListener(ctx context.Context) error {
 	for {
 		select {
 		case <-ctx.Done():
-			log.Printf("Signal connector (ID: %s) (WEBSOCKET mode): Context cancelled before connection attempt. Listener stopping.", c.id)
+			log.Printf("Signal connector (ID: %s) (WEBSOCKET mode): Context cancelled before connection. Stopping.", c.id)
 			return ctx.Err()
 		default:
 		}
@@ -309,42 +309,33 @@ func (c *Connector) runWebSocketListener(ctx context.Context) error {
 				}
 				continue
 			case <-ctx.Done():
-				log.Printf("Signal connector (ID: %s) (WEBSOCKET mode): Context cancelled during reconnect wait. Listener stopping.", c.id)
+				log.Printf("Signal connector (ID: %s) (WEBSOCKET mode): Context cancelled during reconnect wait. Stopping.", c.id)
 				return ctx.Err()
 			}
 		}
 		log.Printf("Signal connector (ID: %s) (WEBSOCKET mode): Successfully connected to %s", c.id, urlString)
 		currentReconnectDelay = defaultReconnectInterval
 		connClosed := make(chan struct{})
-		defer func() {
-			select {
-			case <-connClosed:
-			default:
-				log.Printf("Signal connector (ID: %s) (WEBSOCKET mode): Closing WebSocket connection due to function exit.", c.id)
-				conn.Close()
-			}
+		go func() { // Goroutine to close WebSocket on context cancellation
+			<-ctx.Done()
+			log.Printf("Signal connector (ID: %s) (WEBSOCKET mode): Context cancelled, closing WebSocket.", c.id)
+			conn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseGoingAway, "context cancelled"))
+			conn.Close()
+			close(connClosed)
 		}()
-		go func() {
-			select {
-			case <-ctx.Done():
-				log.Printf("Signal connector (ID: %s) (WEBSOCKET mode): Context cancelled, closing WebSocket connection.", c.id)
-				conn.Close()
-				close(connClosed)
-			case <-connClosed:
-				return
-			}
-		}()
-		for {
+		for { // Message read loop
 			messageType, payload, err := conn.ReadMessage()
 			if err != nil {
-				log.Printf("Signal connector (ID: %s) (WEBSOCKET mode): Error reading message: %v. Will attempt to reconnect.", c.id, err)
-				if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseNormalClosure, websocket.CloseNoStatusReceived) {
-					// Log more serious errors
+				log.Printf("Signal connector (ID: %s) (WEBSOCKET mode): Error reading message: %v.", c.id, err)
+				select {
+				case <-connClosed: // Already closed by the context cancellation goroutine
+				default:
+					conn.Close()
+					close(connClosed)
 				}
-				conn.Close()
-				close(connClosed)
-				break
+				break // Break inner loop to trigger reconnection
 			}
+			// ... (message processing switch remains the same) ...
 			switch messageType {
 			case websocket.TextMessage:
 				log.Printf("Signal connector (ID: %s) (WEBSOCKET mode) received text message: %s", c.id, string(payload))
@@ -361,17 +352,22 @@ func (c *Connector) runWebSocketListener(ctx context.Context) error {
 			case websocket.PongMessage:
 				log.Printf("Signal connector (ID: %s) (WEBSOCKET mode) received pong.", c.id)
 			case websocket.CloseMessage:
-				log.Printf("Signal connector (ID: %s) (WEBSOCKET mode) received close message. Will attempt to reconnect.", c.id)
-				conn.Close()
-				close(connClosed)
-				break
+				log.Printf("Signal connector (ID: %s) (WEBSOCKET mode) received close message from server.", c.id)
+				select {
+				case <-connClosed: // Already closed by the context cancellation goroutine
+				default:
+					conn.Close()
+					close(connClosed)
+				}
+				break // Break inner loop
 			default:
 				log.Printf("Signal connector (ID: %s) (WEBSOCKET mode) received unknown message type: %d", c.id, messageType)
 			}
-			select {
+
+			select { // Check context after processing each message
 			case <-ctx.Done():
-				log.Printf("Signal connector (ID: %s) (WEBSOCKET mode): Context cancelled during message processing. Listener stopping.", c.id)
-				return ctx.Err()
+				log.Printf("Signal connector (ID: %s) (WEBSOCKET mode): Context cancelled during message processing loop. Stopping.", c.id)
+				return ctx.Err() // Exit runWebSocketListener
 			default:
 			}
 		}
@@ -392,9 +388,9 @@ func (c *Connector) processReceivedMessagePayload(ctx context.Context, payload [
 		return nil
 	}
 
-	log.Printf("Signal connector (ID: %s) successfully unmarshalled payload. Account: %s, Envelope: %+v, CallMessage: %+v", c.id, receivedMsg.Account, receivedMsg.Envelope, receivedMsg.CallMessage)
+	log.Printf("Signal connector (ID: %s) successfully unmarshalled. Account: %s, Envelope: %+v, CallMessage: %+v", c.id, receivedMsg.Account, receivedMsg.Envelope, receivedMsg.CallMessage)
 
-	var sender, messageText string
+	var sender, messageText, actualMessageForLLM string
 	var isNoteToSelf, isDataMessageFromOther bool
 
 	if receivedMsg.Envelope != nil {
@@ -406,7 +402,6 @@ func (c *Connector) processReceivedMessagePayload(ctx context.Context, payload [
 			sender = receivedMsg.Envelope.Source
 			messageText = receivedMsg.Envelope.SyncMessage.SentMessage.Message
 			isNoteToSelf = true
-			log.Printf("Signal connector (ID: %s): Identified 'Note to Self' (SentMessage sync) from %s. Text: \"%s\"", c.id, sender, messageText)
 		} else if receivedMsg.Envelope.DataMessage != nil && receivedMsg.Envelope.DataMessage.Message != "" {
 			if receivedMsg.Envelope.Source != "" {
 				sender = receivedMsg.Envelope.Source
@@ -414,47 +409,69 @@ func (c *Connector) processReceivedMessagePayload(ctx context.Context, payload [
 				if sender != c.accountNumber {
 					isDataMessageFromOther = true
 				} else {
-					log.Printf("Signal connector (ID: %s): Ignoring incoming DataMessage originating from self to other(s) (%s). Text: \"%s\"", c.id, sender, messageText)
+					log.Printf("Signal connector (ID: %s): Ignoring DataMessage from self to other(s) (%s). Text: \"%s\"", c.id, sender, messageText)
 				}
 			} else {
-				log.Printf("Warning: Signal DataMessage (ID: %s) received without clear sender in envelope. DataMessage: %+v", c.id, receivedMsg.Envelope.DataMessage)
+				log.Printf("Warning: Signal DataMessage (ID: %s) without sender. Data: %+v", c.id, receivedMsg.Envelope.DataMessage)
 			}
 		}
 	}
 
-	shouldProcessForLLM := false
+	shouldProcessBasedOnSender := false
 	if isNoteToSelf {
-		shouldProcessForLLM = true
+		log.Printf("Signal connector (ID: %s): Identified 'Note to Self' from %s. Text: \"%s\"", c.id, sender, messageText)
+		shouldProcessBasedOnSender = true
 	} else if isDataMessageFromOther {
 		if !c.isWhitelistActive {
-			log.Printf("Signal connector (ID: %s): Whitelist is not active (default 'Note to Self' only mode). Ignoring message from external sender %s.", c.id, sender)
+			log.Printf("Signal connector (ID: %s): Whitelist inactive. Ignoring message from external sender %s.", c.id, sender)
 		} else {
 			if _, isWhitelisted := c.whitelistedNumbersMap[sender]; isWhitelisted {
-				log.Printf("Signal connector (ID: %s): Sender %s is whitelisted. Processing message. Text: \"%s\"", c.id, sender, messageText)
-				shouldProcessForLLM = true
+				log.Printf("Signal connector (ID: %s): Sender %s is whitelisted. Text: \"%s\"", c.id, sender, messageText)
+				shouldProcessBasedOnSender = true
 			} else {
-				log.Printf("Signal connector (ID: %s): Sender %s is not in whitelist. Ignoring message. Text: \"%s\"", c.id, sender, messageText)
+				log.Printf("Signal connector (ID: %s): Sender %s not in whitelist. Ignoring. Text: \"%s\"", c.id, sender, messageText)
 			}
 		}
 	}
 
-	if !shouldProcessForLLM {
-		if sender == "" && messageText == "" && (receivedMsg.Envelope == nil || (receivedMsg.Envelope.DataMessage == nil && receivedMsg.Envelope.SyncMessage == nil && receivedMsg.Envelope.ReceiptMessage == nil)) && receivedMsg.CallMessage == nil {
-			log.Printf("Signal connector (ID: %s): Received unhandled or non-text event type. Payload: %s", c.id, string(payload))
+	if !shouldProcessBasedOnSender {
+		if !isNoteToSelf && !isDataMessageFromOther { // Log only if it wasn't an explicitly ignored type
+			log.Printf("Signal connector (ID: %s): Not a processable text message type or sender. Payload: %s", c.id, string(payload))
 		}
 		return nil
 	}
 
-	if sender == "" || messageText == "" {
-		log.Printf("Signal connector (ID: %s): Internal logic error - sender or messageText empty despite shouldProcessForLLM=true. Payload: %s", c.id, string(payload))
+	// Apply prefix trigger logic
+	actualMessageForLLM = messageText
+	if c.messagePrefixTrigger != "" {
+		trimmedMessage := strings.TrimSpace(messageText)
+		prefixWithSpace := c.messagePrefixTrigger + " "
+		if strings.HasPrefix(trimmedMessage, prefixWithSpace) {
+			actualMessageForLLM = strings.TrimSpace(strings.TrimPrefix(trimmedMessage, prefixWithSpace))
+			if actualMessageForLLM == "" {
+				log.Printf("Signal connector (ID: %s): Message from %s had prefix but no content after. Ignoring.", c.id, sender)
+				return nil
+			}
+			log.Printf("Signal connector (ID: %s): Prefix '%s' matched. Content for LLM: \"%s\"", c.id, c.messagePrefixTrigger, actualMessageForLLM)
+		} else if trimmedMessage == c.messagePrefixTrigger {
+			log.Printf("Signal connector (ID: %s): Message from %s was only prefix trigger '%s'. Ignoring.", c.id, sender, c.messagePrefixTrigger)
+			return nil
+		} else {
+			log.Printf("Signal connector (ID: %s): Message from %s: \"%s\" does not start with prefix '%s'. Ignoring.", c.id, sender, messageText, c.messagePrefixTrigger)
+			return nil
+		}
+	}
+
+	if sender == "" || actualMessageForLLM == "" { // Should be caught by prefix logic if actualMessageForLLM is empty
+		log.Printf("Signal connector (ID: %s): Sender or message for LLM is empty. Sender: '%s'. OriginalText: '%s'. Payload: %s", c.id, sender, messageText, string(payload))
 		return nil
 	}
 
-	log.Printf("Signal connector (ID: %s): Preparing to send to LLM. Sender: %s, Message: \"%s\"", c.id, sender, messageText)
+	log.Printf("Signal connector (ID: %s): Processing for LLM. Sender: %s, Message: \"%s\"", c.id, sender, actualMessageForLLM)
 
 	var history []provider.Message
 	var err error
-	currentUserMessage := provider.UserMessage(messageText)
+	currentUserMessage := provider.UserMessage(actualMessageForLLM)
 
 	if c.historyStorageType == "sqlite" {
 		dbUserMessage := dbMessage{
@@ -464,12 +481,12 @@ func (c *Connector) processReceivedMessagePayload(ctx context.Context, payload [
 			MessageContent:   currentUserMessage.Text(),
 		}
 		if errAdd := c.addMessageToSQLite(ctx, dbUserMessage); errAdd != nil {
-			log.Printf("Signal connector (ID: %s): Failed to add user message to SQLite history for %s: %v. Using current message only for context.", c.id, sender, errAdd)
+			log.Printf("Signal connector (ID: %s): Failed to add user message to SQLite for %s: %v. Using current message only.", c.id, sender, errAdd)
 			history = []provider.Message{currentUserMessage}
 		} else {
 			history, err = c.getHistoryFromSQLite(ctx, sender)
 			if err != nil {
-				log.Printf("Signal connector (ID: %s): Failed to get SQLite history for %s: %v. Using current message only for context.", c.id, sender, err)
+				log.Printf("Signal connector (ID: %s): Failed to get SQLite history for %s: %v. Using current message only.", c.id, sender, err)
 				history = []provider.Message{currentUserMessage}
 			}
 		}
@@ -479,26 +496,26 @@ func (c *Connector) processReceivedMessagePayload(ctx context.Context, payload [
 		if len(history) > c.maxHistoryMessages {
 			startIndex := len(history) - c.maxHistoryMessages
 			history = history[startIndex:]
-			log.Printf("Signal connector (ID: %s): Memory history for %s truncated to last %d messages.", c.id, sender, c.maxHistoryMessages)
+			log.Printf("Signal connector (ID: %s): Memory history for %s truncated to %d messages.", c.id, sender, c.maxHistoryMessages)
 		}
 		c.conversationHistories[sender] = history
 	}
 
-	log.Printf("Signal connector (ID: %s): Sending to LLM for sender %s (history length %d): %+v", c.id, sender, len(history), history)
+	log.Printf("Signal connector (ID: %s): Sending to LLM for %s (history len %d): %+v", c.id, sender, len(history), history)
 
 	completeCtx, cancelComplete := context.WithTimeout(ctx, 30*time.Second)
 	defer cancelComplete()
 
 	llmResponse, err := c.completer.Complete(completeCtx, history, nil)
 	if err != nil {
-		log.Printf("Error from LLM completer for Signal message (ID: %s, sender: %s): %v", c.id, sender, err)
+		log.Printf("Error from LLM completer for %s: %v", sender, err)
 		return err
 	}
 
 	if llmResponse != nil && llmResponse.Message != nil && llmResponse.Message.Text() != "" {
 		replyText := llmResponse.Message.Text()
 		assistantMessage := *llmResponse.Message
-		log.Printf("Signal connector (ID: %s): Received from LLM for sender %s: \"%s\"", c.id, sender, replyText)
+		log.Printf("Signal connector (ID: %s): Received from LLM for %s: \"%s\"", c.id, sender, replyText)
 
 		if c.historyStorageType == "sqlite" {
 			dbAssistantMessage := dbMessage{
@@ -508,34 +525,33 @@ func (c *Connector) processReceivedMessagePayload(ctx context.Context, payload [
 				MessageContent:   assistantMessage.Text(),
 			}
 			if errAdd := c.addMessageToSQLite(ctx, dbAssistantMessage); errAdd != nil {
-				log.Printf("Signal connector (ID: %s): Failed to add assistant message to SQLite history for %s: %v.", c.id, sender, errAdd)
+				log.Printf("Signal connector (ID: %s): Failed to add assistant message to SQLite for %s: %v.", c.id, sender, errAdd)
 			}
 		} else {
 			history = append(history, assistantMessage)
 			if len(history) > c.maxHistoryMessages {
 				startIndex := len(history) - c.maxHistoryMessages
 				history = history[startIndex:]
-				log.Printf("Signal connector (ID: %s): Memory history for %s (after assistant reply) truncated to last %d messages.", c.id, sender, c.maxHistoryMessages)
+				log.Printf("Signal connector (ID: %s): Memory history for %s (after reply) truncated to %d messages.", c.id, sender, c.maxHistoryMessages)
 			}
 			c.conversationHistories[sender] = history
 		}
 
 		if err := c.sendSignalMessage(ctx, sender, replyText); err != nil {
-			log.Printf("Error sending Signal reply (ID: %s, to: %s): %v", c.id, sender, err)
+			log.Printf("Error sending Signal reply to %s: %v", sender, err)
 			return err
 		}
 		log.Printf("Signal connector (ID: %s): Successfully sent reply to %s: \"%s\"", c.id, sender, replyText)
 	} else {
 		if llmResponse == nil || llmResponse.Message == nil {
-			log.Printf("Signal connector (ID: %s): LLM response or message was nil for sender %s.", c.id, sender)
+			log.Printf("Signal connector (ID: %s): LLM response or message was nil for %s.", c.id, sender)
 		} else {
-			log.Printf("Signal connector (ID: %s): LLM provided empty reply for sender %s. Nothing to send.", c.id, sender)
+			log.Printf("Signal connector (ID: %s): LLM provided empty reply for %s.", c.id, sender)
 		}
 	}
 	return nil
 }
 
-// dbMessage struct for SQLite interaction
 type dbMessage struct {
 	ConversationID   string `json:"conversation_id"`
 	MessageTimestamp int64  `json:"message_timestamp"`
@@ -543,7 +559,6 @@ type dbMessage struct {
 	MessageContent   string `json:"message_content"`
 }
 
-// getHistoryFromSQLite retrieves conversation history from SQLite
 func (c *Connector) getHistoryFromSQLite(ctx context.Context, conversationID string) ([]provider.Message, error) {
 	if c.sqlDB == nil {
 		return nil, fmt.Errorf("SQLite DB not initialized for getHistory")
@@ -572,7 +587,6 @@ func (c *Connector) getHistoryFromSQLite(ctx context.Context, conversationID str
 		if err := rows.Scan(&roleStr, &contentStr); err != nil {
 			return nil, fmt.Errorf("SQLite row scan failed: %w", err)
 		}
-		// Convert roleStr to provider.MessageRole
 		var role provider.MessageRole
 		switch strings.ToLower(roleStr) {
 		case string(provider.MessageRoleUser):
@@ -594,7 +608,6 @@ func (c *Connector) getHistoryFromSQLite(ctx context.Context, conversationID str
 	return history, nil
 }
 
-// addMessageToSQLite adds a message to the SQLite history
 func (c *Connector) addMessageToSQLite(ctx context.Context, msg dbMessage) error {
 	if c.sqlDB == nil {
 		return fmt.Errorf("SQLite DB not initialized for addMessage")
@@ -614,32 +627,27 @@ func (c *Connector) sendSignalMessage(ctx context.Context, recipient string, mes
 	if err != nil {
 		return fmt.Errorf("failed to create send URL: %w", err)
 	}
-
 	requestBody := SendMessageV2Request{
 		Number:     c.accountNumber,
 		Recipients: []string{recipient},
 		Message:    message,
 		TextMode:   "normal",
 	}
-
 	jsonData, err := json.Marshal(requestBody)
 	if err != nil {
 		return fmt.Errorf("failed to marshal send request: %w", err)
 	}
-
 	req, err := http.NewRequestWithContext(ctx, "POST", sendURL, bytes.NewBuffer(jsonData))
 	if err != nil {
 		return fmt.Errorf("failed to create POST request to %s: %w", sendURL, err)
 	}
 	req.Header.Set("Content-Type", "application/json")
-
 	resp, err := c.client.Do(req)
 	if err != nil {
 		return fmt.Errorf("failed to POST to %s: %w", sendURL, err)
 	}
 	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusCreated { // V2 Send expects 201 Created
+	if resp.StatusCode != http.StatusCreated {
 		bodyBytes, _ := io.ReadAll(resp.Body)
 		var sendErr SendMessageError
 		if json.Unmarshal(bodyBytes, &sendErr) == nil && sendErr.Error != "" {
@@ -647,12 +655,5 @@ func (c *Connector) sendSignalMessage(ctx context.Context, recipient string, mes
 		}
 		return fmt.Errorf("failed to send message, status %d: %s", resp.StatusCode, string(bodyBytes))
 	}
-
-	// Optionally decode SendMessageV2Response if needed
-	// var sendResp SendMessageV2Response
-	// if err := json.NewDecoder(resp.Body).Decode(&sendResp); err != nil {
-	// 	log.Printf("Warning: could not decode send response: %v", err)
-	// }
-
 	return nil
 }
