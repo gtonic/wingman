@@ -382,6 +382,32 @@ func (c *Connector) runWebSocketListener(ctx context.Context) error {
 	}
 }
 
+func (c *Connector) downloadAttachment(ctx context.Context, attachmentID string) ([]byte, error) {
+	// Attempt to download the attachment from the Signal REST API
+	attachmentURL, err := url.JoinPath(c.url, "/v1/attachments/", attachmentID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create attachment URL: %w", err)
+	}
+	req, err := http.NewRequestWithContext(ctx, "GET", attachmentURL, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create GET request for attachment: %w", err)
+	}
+	resp, err := c.client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to GET attachment: %w", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		bodyBytes, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("failed to download attachment, status %d: %s", resp.StatusCode, string(bodyBytes))
+	}
+	data, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read attachment body: %w", err)
+	}
+	return data, nil
+}
+
 func (c *Connector) processReceivedMessagePayload(ctx context.Context, payload []byte) error {
 	log.Printf("Signal connector (ID: %s) processing raw payload: %s", c.id, string(payload))
 
@@ -400,6 +426,7 @@ func (c *Connector) processReceivedMessagePayload(ctx context.Context, payload [
 	var actualSender, messageText, conversationContextID, actualMessageForLLM string
 	isFromSelf := false
 	var messageSourceType string // "dataMessage", "sentMessageSync1on1", "sentMessageSyncGroup"
+	var attachments []Attachment // Using the Attachment struct from api.go
 
 	if receivedMsg.Envelope == nil || receivedMsg.Envelope.Source == "" {
 		log.Printf("Signal connector (ID: %s): Envelope or source is missing. Cannot process. Payload: %s", c.id, string(payload))
@@ -408,9 +435,12 @@ func (c *Connector) processReceivedMessagePayload(ctx context.Context, payload [
 	actualSender = receivedMsg.Envelope.Source
 	isFromSelf = (actualSender == c.accountNumber)
 
-	if receivedMsg.Envelope.DataMessage != nil && receivedMsg.Envelope.DataMessage.Message != "" {
+	// Extract message text and attachments
+	if receivedMsg.Envelope.DataMessage != nil {
 		messageSourceType = "dataMessage"
 		messageText = receivedMsg.Envelope.DataMessage.Message
+		attachments = receivedMsg.Envelope.DataMessage.Attachments // Get attachments
+
 		if receivedMsg.Envelope.DataMessage.GroupInfo != nil && receivedMsg.Envelope.DataMessage.GroupInfo.GroupID != "" {
 			conversationContextID = receivedMsg.Envelope.DataMessage.GroupInfo.GroupID
 			log.Printf("Signal connector (ID: %s): DataMessage from group %s by sender %s.", c.id, conversationContextID, actualSender)
@@ -418,8 +448,10 @@ func (c *Connector) processReceivedMessagePayload(ctx context.Context, payload [
 			conversationContextID = actualSender
 			log.Printf("Signal connector (ID: %s): DataMessage from direct sender %s.", c.id, actualSender)
 		}
-	} else if isFromSelf && receivedMsg.Envelope.SyncMessage != nil && receivedMsg.Envelope.SyncMessage.SentMessage != nil && receivedMsg.Envelope.SyncMessage.SentMessage.Message != "" {
+	} else if isFromSelf && receivedMsg.Envelope.SyncMessage != nil && receivedMsg.Envelope.SyncMessage.SentMessage != nil {
 		messageText = receivedMsg.Envelope.SyncMessage.SentMessage.Message
+		attachments = receivedMsg.Envelope.SyncMessage.SentMessage.Attachments // Get attachments
+
 		if receivedMsg.Envelope.SyncMessage.SentMessage.GroupInfo != nil && receivedMsg.Envelope.SyncMessage.SentMessage.GroupInfo.GroupID != "" {
 			messageSourceType = "sentMessageSyncGroup"
 			conversationContextID = receivedMsg.Envelope.SyncMessage.SentMessage.GroupInfo.GroupID
@@ -433,7 +465,45 @@ func (c *Connector) processReceivedMessagePayload(ctx context.Context, payload [
 			return nil
 		}
 	} else {
-		log.Printf("Signal connector (ID: %s): Not a processable DataMessage or relevant SentMessage sync. Payload: %s", c.id, string(payload))
+		log.Printf("Signal connector (ID: %s): Not a processable DataMessage or relevant SentMessage sync (no text or attachments). Payload: %s", c.id, string(payload))
+		return nil
+	}
+
+	// Process attachments
+	hasImageAttachment := false
+	var imageFileContent *provider.File
+	if len(attachments) > 0 {
+		log.Printf("Signal connector (ID: %s): Found %d attachments for message from %s (context %s).", c.id, len(attachments), actualSender, conversationContextID)
+		for _, att := range attachments {
+			log.Printf("Signal connector (ID: %s): Attachment details: Filename: %s, ContentType: %s, Size: %d", c.id, att.Filename, att.ContentType, att.Size)
+			if strings.HasPrefix(strings.ToLower(att.ContentType), "image/") {
+				hasImageAttachment = true
+				// Download the image
+				imageData, err := c.downloadAttachment(ctx, att.ID)
+				if err != nil {
+					log.Printf("Signal connector (ID: %s): Failed to download image attachment %s: %v", c.id, att.ID, err)
+					imageNotification := fmt.Sprintf("[Image Received but failed to download: %s]", att.ContentType)
+					if messageText == "" {
+						messageText = imageNotification
+					} else {
+						messageText = messageText + " " + imageNotification
+					}
+				} else {
+					imageFileContent = &provider.File{
+						Name:        att.Filename,
+						Content:     imageData,
+						ContentType: att.ContentType,
+					}
+					log.Printf("Signal connector (ID: %s): Image attachment downloaded and will be sent to LLM (%s, %d bytes).", c.id, att.Filename, len(imageData))
+				}
+				break // Only process the first image
+			}
+		}
+	}
+
+	// If there's no text message and no image attachment processed, it might be an unsupported attachment type or empty message.
+	if messageText == "" && !hasImageAttachment {
+		log.Printf("Signal connector (ID: %s): Message from %s (context %s) has no text content or processable image attachment. Ignoring. Payload: %s", c.id, actualSender, conversationContextID, string(payload))
 		return nil
 	}
 
@@ -485,7 +555,8 @@ func (c *Connector) processReceivedMessagePayload(ctx context.Context, payload [
 	}
 
 	actualMessageForLLM = messageText
-	if c.messagePrefixTrigger != "" {
+	// Only enforce prefix for non-self messages
+	if c.messagePrefixTrigger != "" && messageSourceType != "sentMessageSync1on1" {
 		trimmedMessage := strings.TrimSpace(messageText)
 		prefixWithSpace := c.messagePrefixTrigger + " "
 		if strings.HasPrefix(trimmedMessage, prefixWithSpace) {
@@ -513,7 +584,19 @@ func (c *Connector) processReceivedMessagePayload(ctx context.Context, payload [
 
 	var history []provider.Message
 	var err error
-	currentUserMessage := provider.UserMessage(actualMessageForLLM)
+
+	// Build user message with text and (if present) image file content
+	var userContents []provider.Content
+	if actualMessageForLLM != "" {
+		userContents = append(userContents, provider.TextContent(actualMessageForLLM))
+	}
+	if imageFileContent != nil {
+		userContents = append(userContents, provider.FileContent(imageFileContent))
+	}
+	currentUserMessage := provider.Message{
+		Role:    provider.MessageRoleUser,
+		Content: userContents,
+	}
 
 	if c.historyStorageType == "sqlite" {
 		dbUserMessage := dbMessage{

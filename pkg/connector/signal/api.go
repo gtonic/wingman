@@ -114,18 +114,18 @@ type SyncMessage struct {
 }
 
 type SentMessagePayload struct {
-	Destination        string     `json:"destination,omitempty"`
-	DestinationNumber  string     `json:"destinationNumber,omitempty"`
-	DestinationUuid    string     `json:"destinationUuid,omitempty"`
-	Timestamp          int64      `json:"timestamp,omitempty"`
-	Message            string     `json:"message,omitempty"` // The actual message text
-	ExpiresInSeconds   int        `json:"expiresInSeconds,omitempty"`
-	ViewOnce           bool       `json:"viewOnce,omitempty"`
-	DistributionListId string     `json:"distributionListId,omitempty"`
-	Mentions           []any      `json:"mentions,omitempty"`
-	Attachments        []any      `json:"attachments,omitempty"` // Define Attachment struct if needed
-	Quote              *Quote     `json:"quote,omitempty"`
-	GroupInfo          *GroupInfo `json:"groupInfo,omitempty"` // If sent to a group
+	Destination        string       `json:"destination,omitempty"`
+	DestinationNumber  string       `json:"destinationNumber,omitempty"`
+	DestinationUuid    string       `json:"destinationUuid,omitempty"`
+	Timestamp          int64        `json:"timestamp,omitempty"`
+	Message            string       `json:"message,omitempty"` // The actual message text
+	ExpiresInSeconds   int          `json:"expiresInSeconds,omitempty"`
+	ViewOnce           bool         `json:"viewOnce,omitempty"`
+	DistributionListId string       `json:"distributionListId,omitempty"`
+	Mentions           []any        `json:"mentions,omitempty"`
+	Attachments        []Attachment `json:"attachments,omitempty"`
+	Quote              *Quote       `json:"quote,omitempty"`
+	GroupInfo          *GroupInfo   `json:"groupInfo,omitempty"` // If sent to a group
 	// Other fields like reactions, stickers if they can be part of a sent message sync
 }
 
