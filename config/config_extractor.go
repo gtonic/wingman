@@ -6,6 +6,7 @@ import (
 
 	"github.com/adrianliechti/wingman/pkg/extractor"
 	"github.com/adrianliechti/wingman/pkg/extractor/azure"
+	"github.com/adrianliechti/wingman/pkg/extractor/custom"
 	"github.com/adrianliechti/wingman/pkg/extractor/exa"
 	"github.com/adrianliechti/wingman/pkg/extractor/jina"
 	"github.com/adrianliechti/wingman/pkg/extractor/multi"
@@ -123,6 +124,9 @@ func createExtractor(cfg extractorConfig, context extractorContext) (extractor.P
 	case "unstructured", "wingman-extractor":
 		return unstructuredExtractor(cfg)
 
+	case "custom":
+		return customExtractor(cfg)
+
 	default:
 		return nil, errors.New("invalid extractor type: " + cfg.Type)
 	}
@@ -176,4 +180,10 @@ func unstructuredExtractor(cfg extractorConfig) (extractor.Provider, error) {
 	}
 
 	return unstructured.New(cfg.URL, options...)
+}
+
+func customExtractor(cfg extractorConfig) (extractor.Provider, error) {
+	var options []custom.Option
+
+	return custom.New(cfg.URL, options...)
 }
