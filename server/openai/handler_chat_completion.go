@@ -156,6 +156,14 @@ func (h *Handler) handleChatCompletion(w http.ResponseWriter, r *http.Request) {
 
 			if reason == "" {
 				reason = provider.CompletionReasonStop
+
+				if completion.Message != nil {
+					for _, c := range completion.Message.Content {
+						if c.ToolCall != nil {
+							reason = provider.CompletionReasonTool
+						}
+					}
+				}
 			}
 
 			result := ChatCompletion{
