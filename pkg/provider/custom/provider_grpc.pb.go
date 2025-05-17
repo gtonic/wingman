@@ -19,7 +19,7 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	Completer_Complete_FullMethodName = "/provider.completer/Complete"
+	Completer_Complete_FullMethodName = "/provider.Completer/Complete"
 )
 
 // CompleterClient is the client API for Completer service.
@@ -110,7 +110,7 @@ type Completer_CompleteServer = grpc.ServerStreamingServer[Completion]
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var Completer_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "provider.completer",
+	ServiceName: "provider.Completer",
 	HandlerType: (*CompleterServer)(nil),
 	Methods:     []grpc.MethodDesc{},
 	Streams: []grpc.StreamDesc{
@@ -124,7 +124,7 @@ var Completer_ServiceDesc = grpc.ServiceDesc{
 }
 
 const (
-	Embedder_Embed_FullMethodName = "/provider.embedder/Embed"
+	Embedder_Embed_FullMethodName = "/provider.Embedder/Embed"
 )
 
 // EmbedderClient is the client API for Embedder service.
@@ -213,7 +213,7 @@ func _Embedder_Embed_Handler(srv interface{}, ctx context.Context, dec func(inte
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var Embedder_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "provider.embedder",
+	ServiceName: "provider.Embedder",
 	HandlerType: (*EmbedderServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{

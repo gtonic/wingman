@@ -944,9 +944,9 @@ const file_provider_proto_rawDesc = "" +
 	"\x06_usage\"\x1f\n" +
 	"\tEmbedding\x12\x12\n" +
 	"\x04data\x18\x01 \x03(\x02R\x04data2L\n" +
-	"\tcompleter\x12?\n" +
+	"\tCompleter\x12?\n" +
 	"\bComplete\x12\x19.provider.CompleteRequest\x1a\x14.provider.Completion\"\x000\x012C\n" +
-	"\bembedder\x127\n" +
+	"\bEmbedder\x127\n" +
 	"\x05Embed\x12\x16.provider.EmbedRequest\x1a\x14.provider.Embeddings\"\x00B=Z;github.com/adrianliechti/wingman/pkg/provider/custom;customb\x06proto3"
 
 var (
@@ -990,10 +990,10 @@ var file_provider_proto_depIdxs = []int32{
 	7,  // 9: provider.Content.tool_result:type_name -> provider.ToolResult
 	12, // 10: provider.Embeddings.Embeddings:type_name -> provider.Embedding
 	9,  // 11: provider.Embeddings.usage:type_name -> provider.Usage
-	0,  // 12: provider.completer.Complete:input_type -> provider.CompleteRequest
-	10, // 13: provider.embedder.Embed:input_type -> provider.EmbedRequest
-	1,  // 14: provider.completer.Complete:output_type -> provider.Completion
-	11, // 15: provider.embedder.Embed:output_type -> provider.Embeddings
+	0,  // 12: provider.Completer.Complete:input_type -> provider.CompleteRequest
+	10, // 13: provider.Embedder.Embed:input_type -> provider.EmbedRequest
+	1,  // 14: provider.Completer.Complete:output_type -> provider.Completion
+	11, // 15: provider.Embedder.Embed:output_type -> provider.Embeddings
 	14, // [14:16] is the sub-list for method output_type
 	12, // [12:14] is the sub-list for method input_type
 	12, // [12:12] is the sub-list for extension type_name
