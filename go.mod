@@ -3,7 +3,7 @@ module github.com/adrianliechti/wingman
 go 1.24
 
 require (
-	github.com/anthropics/anthropic-sdk-go v0.2.0-beta.3
+	github.com/anthropics/anthropic-sdk-go v0.2.0-beta.3.0.20250517050459-6d4691c76d8b
 	github.com/aws/aws-sdk-go-v2 v1.36.3
 	github.com/aws/aws-sdk-go-v2/config v1.29.14
 	github.com/aws/aws-sdk-go-v2/service/bedrockruntime v1.30.0

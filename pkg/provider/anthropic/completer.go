@@ -330,13 +330,13 @@ func (c *Completer) convertMessageRequest(input []provider.Message, options *pro
 					case "application/pdf":
 						block := anthropic.DocumentBlockParam{
 							Source: anthropic.DocumentBlockParamSourceUnion{
-								OfBase64PDFSource: &anthropic.Base64PDFSourceParam{
+								OfBase64: &anthropic.Base64PDFSourceParam{
 									Data: content,
 								},
 							},
 						}
 
-						blocks = append(blocks, anthropic.ContentBlockParamUnion{OfRequestDocumentBlock: &block})
+						blocks = append(blocks, anthropic.ContentBlockParamUnion{OfDocument: &block})
 
 					default:
 						return nil, errors.New("unsupported content type")
@@ -367,7 +367,7 @@ func (c *Completer) convertMessageRequest(input []provider.Message, options *pro
 					}
 
 					blocks = append(blocks, anthropic.ContentBlockParamUnion{
-						OfRequestToolUseBlock: &anthropic.ToolUseBlockParam{
+						OfToolUse: &anthropic.ToolUseBlockParam{
 							ID:    c.ToolCall.ID,
 							Name:  c.ToolCall.Name,
 							Input: input,
@@ -415,7 +415,7 @@ func (c *Completer) convertMessageRequest(input []provider.Message, options *pro
 		}
 
 		req.ToolChoice = anthropic.ToolChoiceUnionParam{
-			OfToolChoiceTool: &anthropic.ToolChoiceToolParam{
+			OfTool: &anthropic.ToolChoiceToolParam{
 				Name: options.Schema.Name,
 			},
 		}
@@ -463,18 +463,18 @@ func toContent(blocks []anthropic.ContentBlockUnion) []provider.Content {
 	return parts
 }
 
-func toCompletionResult(val anthropic.MessageStopReason) provider.CompletionReason {
+func toCompletionResult(val anthropic.StopReason) provider.CompletionReason {
 	switch val {
-	case anthropic.MessageStopReasonEndTurn:
+	case anthropic.StopReasonEndTurn:
 		return provider.CompletionReasonStop
 
-	case anthropic.MessageStopReasonMaxTokens:
+	case anthropic.StopReasonMaxTokens:
 		return provider.CompletionReasonLength
 
-	case anthropic.MessageStopReasonStopSequence:
+	case anthropic.StopReasonStopSequence:
 		return provider.CompletionReasonStop
 
-	case anthropic.MessageStopReasonToolUse:
+	case anthropic.StopReasonToolUse:
 		return provider.CompletionReasonTool
 
 	default:
