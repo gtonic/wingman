@@ -73,27 +73,27 @@ func (x *TranslateRequest) GetLanguage() string {
 	return ""
 }
 
-type TranslationResponse struct {
+type Translation struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Text          string                 `protobuf:"bytes,1,opt,name=text,proto3" json:"text,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *TranslationResponse) Reset() {
-	*x = TranslationResponse{}
+func (x *Translation) Reset() {
+	*x = Translation{}
 	mi := &file_translator_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *TranslationResponse) String() string {
+func (x *Translation) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*TranslationResponse) ProtoMessage() {}
+func (*Translation) ProtoMessage() {}
 
-func (x *TranslationResponse) ProtoReflect() protoreflect.Message {
+func (x *Translation) ProtoReflect() protoreflect.Message {
 	mi := &file_translator_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -105,12 +105,12 @@ func (x *TranslationResponse) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use TranslationResponse.ProtoReflect.Descriptor instead.
-func (*TranslationResponse) Descriptor() ([]byte, []int) {
+// Deprecated: Use Translation.ProtoReflect.Descriptor instead.
+func (*Translation) Descriptor() ([]byte, []int) {
 	return file_translator_proto_rawDescGZIP(), []int{1}
 }
 
-func (x *TranslationResponse) GetText() string {
+func (x *Translation) GetText() string {
 	if x != nil {
 		return x.Text
 	}
@@ -125,12 +125,12 @@ const file_translator_proto_rawDesc = "" +
 	"translator\"B\n" +
 	"\x10TranslateRequest\x12\x12\n" +
 	"\x04text\x18\x01 \x01(\tR\x04text\x12\x1a\n" +
-	"\blanguage\x18\x02 \x01(\tR\blanguage\")\n" +
-	"\x13TranslationResponse\x12\x12\n" +
-	"\x04text\x18\x01 \x01(\tR\x04text2Z\n" +
+	"\blanguage\x18\x02 \x01(\tR\blanguage\"!\n" +
+	"\vTranslation\x12\x12\n" +
+	"\x04text\x18\x01 \x01(\tR\x04text2R\n" +
 	"\n" +
-	"Translator\x12L\n" +
-	"\tTranslate\x12\x1c.translator.TranslateRequest\x1a\x1f.translator.TranslationResponse\"\x00B?Z=github.com/adrianliechti/wingman/pkg/translator/custom;customb\x06proto3"
+	"Translator\x12D\n" +
+	"\tTranslate\x12\x1c.translator.TranslateRequest\x1a\x17.translator.Translation\"\x00B?Z=github.com/adrianliechti/wingman/pkg/translator/custom;customb\x06proto3"
 
 var (
 	file_translator_proto_rawDescOnce sync.Once
@@ -146,12 +146,12 @@ func file_translator_proto_rawDescGZIP() []byte {
 
 var file_translator_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
 var file_translator_proto_goTypes = []any{
-	(*TranslateRequest)(nil),    // 0: translator.TranslateRequest
-	(*TranslationResponse)(nil), // 1: translator.TranslationResponse
+	(*TranslateRequest)(nil), // 0: translator.TranslateRequest
+	(*Translation)(nil),      // 1: translator.Translation
 }
 var file_translator_proto_depIdxs = []int32{
 	0, // 0: translator.Translator.Translate:input_type -> translator.TranslateRequest
-	1, // 1: translator.Translator.Translate:output_type -> translator.TranslationResponse
+	1, // 1: translator.Translator.Translate:output_type -> translator.Translation
 	1, // [1:2] is the sub-list for method output_type
 	0, // [0:1] is the sub-list for method input_type
 	0, // [0:0] is the sub-list for extension type_name

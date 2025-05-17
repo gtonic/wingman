@@ -5,19 +5,19 @@ import (
 	"errors"
 	"strings"
 
-	"github.com/adrianliechti/wingman/pkg/translator"
+	"github.com/adrianliechti/wingman/pkg/summarizer"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )
 
 var (
-	_ translator.Provider = (*Client)(nil)
+	_ summarizer.Provider = (*Client)(nil)
 )
 
 type Client struct {
 	url    string
-	client TranslatorClient
+	client SummarizerClient
 }
 
 func New(url string, options ...Option) (*Client, error) {
@@ -41,27 +41,25 @@ func New(url string, options ...Option) (*Client, error) {
 		return nil, err
 	}
 
-	c.client = NewTranslatorClient(client)
+	c.client = NewSummarizerClient(client)
 
 	return c, nil
 }
 
-func (c *Client) Translate(ctx context.Context, text string, options *translator.TranslateOptions) (*translator.Translation, error) {
+func (c *Client) Summarize(ctx context.Context, text string, options *summarizer.SummarizerOptions) (*summarizer.Summary, error) {
 	if options == nil {
-		options = new(translator.TranslateOptions)
+		options = new(summarizer.SummarizerOptions)
 	}
 
-	resp, err := c.client.Translate(ctx, &TranslateRequest{
+	resp, err := c.client.Summarize(ctx, &SummarizeRequest{
 		Text: text,
-
-		Language: options.Language,
 	})
 
 	if err != nil {
 		return nil, err
 	}
 
-	return &translator.Translation{
+	return &summarizer.Summary{
 		Text: resp.Text,
 	}, nil
 }

@@ -36,7 +36,7 @@ func (c *Client) Translate(ctx context.Context, content string, options *transla
 	}
 
 	result := &translator.Translation{
-		Content: completion.Message.Text(),
+		Text: completion.Message.Text(),
 	}
 
 	return result, nil
