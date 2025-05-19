@@ -306,8 +306,23 @@ func toMessages(s []ChatCompletionMessage) ([]provider.Message, error) {
 				content = append(content, provider.TextContent(c.Text))
 			}
 
-			if c.Type == MessageContentTypeFileURL && c.FileURL != nil {
-				file, err := toFile(c.FileURL.URL)
+			if c.Type == MessageContentTypeFile && c.File != nil {
+				data, err := base64.StdEncoding.DecodeString(c.File.Data)
+
+				if err != nil {
+					return nil, err
+				}
+
+				file := &provider.File{
+					Name:    c.File.Name,
+					Content: data,
+				}
+
+				content = append(content, provider.FileContent(file))
+			}
+
+			if c.Type == MessageContentTypeImage && c.Image != nil {
+				file, err := toFile(c.Image.URL)
 
 				if err != nil {
 					return nil, err
@@ -316,15 +331,24 @@ func toMessages(s []ChatCompletionMessage) ([]provider.Message, error) {
 				content = append(content, provider.FileContent(file))
 			}
 
-			if c.Type == MessageContentTypeImageURL && c.ImageURL != nil {
-				file, err := toFile(c.ImageURL.URL)
+			if c.Type == MessageContentTypeAudio && c.Audio != nil {
+				data, err := base64.StdEncoding.DecodeString(c.File.Data)
 
 				if err != nil {
 					return nil, err
 				}
 
+				file := &provider.File{
+					Content: data,
+				}
+
+				if c.Audio.Format != "" {
+					file.Name = uuid.NewString() + c.Audio.Format
+				}
+
 				content = append(content, provider.FileContent(file))
 			}
+
 		}
 
 		for _, c := range m.ToolCalls {

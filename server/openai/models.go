@@ -215,9 +215,10 @@ type ChatCompletionMessage struct {
 type MessageContentType string
 
 var (
-	MessageContentTypeText     MessageContentType = "text"
-	MessageContentTypeFileURL  MessageContentType = "file_url" // non-standard
-	MessageContentTypeImageURL MessageContentType = "image_url"
+	MessageContentTypeText  MessageContentType = "text"
+	MessageContentTypeFile  MessageContentType = "file"
+	MessageContentTypeImage MessageContentType = "image_url"
+	MessageContentTypeAudio MessageContentType = "input_audio"
 )
 
 type MessageContent struct {
@@ -225,12 +226,23 @@ type MessageContent struct {
 
 	Text string `json:"text,omitempty"`
 
-	FileURL  *MessageContentURL `json:"file_url,omitempty"` // non-standard
-	ImageURL *MessageContentURL `json:"image_url,omitempty"`
+	File  *MessageContentFile  `json:"file,omitempty"`
+	Image *MessageContentImage `json:"image_url,omitempty"`
+	Audio *MessageContentAudio `json:"input_audio,omitempty"`
 }
 
-type MessageContentURL struct {
+type MessageContentImage struct {
 	URL string `json:"url"`
+}
+
+type MessageContentFile struct {
+	Name string `json:"filename,omitempty"`
+	Data string `json:"file_data,omitempty"`
+}
+
+type MessageContentAudio struct {
+	Data   string `json:"data,omitempty"`
+	Format string `json:"format,omitempty"`
 }
 
 func (m *ChatCompletionMessage) MarshalJSON() ([]byte, error) {
