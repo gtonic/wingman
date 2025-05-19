@@ -333,11 +333,11 @@ func (c *Completer) convertMessages(input []provider.Message) ([]openai.ChatComp
 		case provider.MessageRoleAssistant:
 			message := openai.ChatCompletionAssistantMessageParam{}
 
-			var content []openai.ChatCompletionAssistantMessageParamContentArrayOfContentPartUnion
+			var content []openai.ChatCompletionAssistantMessagePartUnion
 
 			for _, c := range m.Content {
 				if c.Text != "" {
-					content = append(content, openai.ChatCompletionAssistantMessageParamContentArrayOfContentPartUnion{
+					content = append(content, openai.ChatCompletionAssistantMessagePartUnion{
 						OfText: &openai.ChatCompletionContentPartTextParam{
 							Text: c.Text,
 						},
@@ -345,7 +345,7 @@ func (c *Completer) convertMessages(input []provider.Message) ([]openai.ChatComp
 				}
 
 				if c.Refusal != "" {
-					content = append(content, openai.ChatCompletionAssistantMessageParamContentArrayOfContentPartUnion{
+					content = append(content, openai.ChatCompletionAssistantMessagePartUnion{
 						OfRefusal: &openai.ChatCompletionContentPartRefusalParam{
 							Refusal: c.Refusal,
 						},

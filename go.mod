@@ -3,7 +3,7 @@ module github.com/adrianliechti/wingman
 go 1.24
 
 require (
-	github.com/anthropics/anthropic-sdk-go v0.2.0-beta.3.0.20250517050459-6d4691c76d8b
+	github.com/anthropics/anthropic-sdk-go v0.2.0-beta.3.0.20250519194210-d67a151a6ef0
 	github.com/aws/aws-sdk-go-v2 v1.36.3
 	github.com/aws/aws-sdk-go-v2/config v1.29.14
 	github.com/aws/aws-sdk-go-v2/service/bedrockruntime v1.30.0
@@ -14,7 +14,7 @@ require (
 	github.com/google/generative-ai-go v0.20.1
 	github.com/google/uuid v1.6.0
 	github.com/mark3labs/mcp-go v0.28.0
-	github.com/openai/openai-go v0.1.0-beta.10.0.20250516194940-e50580de825e
+	github.com/openai/openai-go v0.1.0-beta.10.0.20250519194122-421e3c5065ac
 	github.com/replicate/replicate-go v0.26.0
 	github.com/stretchr/testify v1.10.0
 	github.com/testcontainers/testcontainers-go v0.37.0

@@ -118,7 +118,7 @@ func (r *Renderer) Render(ctx context.Context, input string, options *provider.R
 			Prompt: input,
 
 			Image: openai.ImageEditParamsImageUnion{
-				OfBinaryArray: files,
+				OfFileArray: files,
 			},
 		})
 
