@@ -186,7 +186,7 @@ type ChatCompletion struct {
 
 	Choices []ChatCompletionChoice `json:"choices"`
 
-	Usage *Usage `json:"usage,omitempty"`
+	Usage *Usage `json:"usage"`
 }
 
 // https://platform.openai.com/docs/api-reference/chat/object
@@ -203,8 +203,8 @@ type ChatCompletionChoice struct {
 type ChatCompletionMessage struct {
 	Role MessageRole `json:"role,omitempty"`
 
-	Content string `json:"content"`
-	Refusal string `json:"refusal,omitempty"`
+	Content *string `json:"content,omitempty"`
+	Refusal *string `json:"refusal,omitempty"`
 
 	Contents []MessageContent `json:"-"`
 
@@ -246,16 +246,16 @@ type MessageContentAudio struct {
 }
 
 func (m *ChatCompletionMessage) MarshalJSON() ([]byte, error) {
-	if m.Content != "" && m.Contents != nil {
+	if m.Content != nil && m.Contents != nil {
 		return nil, errors.New("cannot have both content and contents")
 	}
 
 	if len(m.Contents) > 0 {
 		type2 := struct {
-			Role MessageRole `json:"role"`
+			Role MessageRole `json:"role,omitempty"`
 
-			Content string `json:"-"`
-			Refusal string `json:"refusal,omitempty"`
+			Content *string `json:"-"`
+			Refusal *string `json:"refusal,omitempty"`
 
 			Contents []MessageContent `json:"content,omitempty"`
 
@@ -266,10 +266,10 @@ func (m *ChatCompletionMessage) MarshalJSON() ([]byte, error) {
 		return json.Marshal(type2)
 	} else {
 		type1 := struct {
-			Role MessageRole `json:"role"`
+			Role MessageRole `json:"role,omitempty"`
 
-			Content string `json:"content"`
-			Refusal string `json:"refusal,omitempty"`
+			Content *string `json:"content,omitempty"`
+			Refusal *string `json:"refusal,omitempty"`
 
 			Contents []MessageContent `json:"-"`
 
@@ -283,10 +283,10 @@ func (m *ChatCompletionMessage) MarshalJSON() ([]byte, error) {
 
 func (m *ChatCompletionMessage) UnmarshalJSON(data []byte) error {
 	type1 := struct {
-		Role MessageRole `json:"role"`
+		Role MessageRole `json:"role,omitempty"`
 
-		Content string `json:"content"`
-		Refusal string `json:"refusal,omitempty"`
+		Content *string `json:"content"`
+		Refusal *string `json:"refusal,omitempty"`
 
 		Contents []MessageContent
 
@@ -300,10 +300,10 @@ func (m *ChatCompletionMessage) UnmarshalJSON(data []byte) error {
 	}
 
 	type2 := struct {
-		Role MessageRole `json:"role"`
+		Role MessageRole `json:"role,omitempty"`
 
-		Content string
-		Refusal string `json:"refusal,omitempty"`
+		Content *string
+		Refusal *string `json:"refusal,omitempty"`
 
 		Contents []MessageContent `json:"content"`
 
@@ -334,9 +334,9 @@ type Tool struct {
 
 // https://platform.openai.com/docs/api-reference/chat/object
 type ToolCall struct {
-	ID string `json:"id"`
+	ID string `json:"id,omitempty"`
 
-	Type ToolType `json:"type"`
+	Type ToolType `json:"type,omitempty"`
 
 	Index int `json:"index"`
 
@@ -354,7 +354,7 @@ type Function struct {
 
 // https://platform.openai.com/docs/api-reference/chat/object
 type FunctionCall struct {
-	Name      string `json:"name"`
+	Name      string `json:"name,omitempty"`
 	Arguments string `json:"arguments"`
 }
 

@@ -98,7 +98,11 @@ func (h *Handler) handleChatCompletion(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Cache-Control", "no-cache")
 		w.Header().Set("Connection", "keep-alive")
 
+		var role provider.MessageRole
 		var reason provider.CompletionReason
+
+		completionCall := ""
+		completionCallIndex := map[string]int{}
 
 		options.Stream = func(ctx context.Context, completion provider.Completion) error {
 			if completion.Usage != nil && (completion.Message == nil || len(completion.Message.Content) == 0) {
@@ -113,7 +117,12 @@ func (h *Handler) handleChatCompletion(w http.ResponseWriter, r *http.Request) {
 				Model:   completion.Model,
 				Created: time.Now().Unix(),
 
-				Choices: []ChatCompletionChoice{},
+				Choices: []ChatCompletionChoice{
+					{
+						Delta:        &ChatCompletionMessage{},
+						FinishReason: oaiFinishReason(completion.Reason),
+					},
+				},
 			}
 
 			if result.Model == "" {
@@ -121,17 +130,52 @@ func (h *Handler) handleChatCompletion(w http.ResponseWriter, r *http.Request) {
 			}
 
 			if completion.Message != nil {
+				message := &ChatCompletionMessage{}
+
+				if completion.Message.Role != role {
+					role = completion.Message.Role
+					message.Role = oaiMessageRole(completion.Message.Role)
+				}
+
+				if content := completion.Message.Text(); content != "" {
+					message.Content = &content
+				}
+
+				if refusal := completion.Message.Refusal(); refusal != "" {
+					message.Refusal = &refusal
+				}
+
+				if calls := oaiToolCalls(completion.Message.Content); len(calls) > 0 {
+					message.Content = nil
+					message.Refusal = nil
+
+					for i, c := range calls {
+						if c.ID != "" {
+							completionCall = c.ID
+							completionCallIndex[completionCall] = len(completionCallIndex)
+						}
+
+						if completionCall == "" {
+							continue
+						}
+
+						call := ToolCall{
+							ID:    c.ID,
+							Index: len(completionCallIndex) - 1,
+
+							Type:     c.Type,
+							Function: c.Function,
+						}
+
+						calls[i] = call
+					}
+
+					message.ToolCalls = calls
+				}
+
 				result.Choices = []ChatCompletionChoice{
 					{
-						Delta: &ChatCompletionMessage{
-							Role: oaiMessageRole(completion.Message.Role),
-
-							Content: completion.Message.Text(),
-							Refusal: completion.Message.Refusal(),
-
-							ToolCalls: oaiToolCalls(completion.Message.Content),
-						},
-
+						Delta:        message,
 						FinishReason: oaiFinishReason(completion.Reason),
 					},
 				}
@@ -158,10 +202,8 @@ func (h *Handler) handleChatCompletion(w http.ResponseWriter, r *http.Request) {
 				reason = provider.CompletionReasonStop
 
 				if completion.Message != nil {
-					for _, c := range completion.Message.Content {
-						if c.ToolCall != nil {
-							reason = provider.CompletionReasonTool
-						}
+					if len(oaiToolCalls(completion.Message.Content)) > 0 {
+						reason = provider.CompletionReasonTool
 					}
 				}
 			}
@@ -176,10 +218,7 @@ func (h *Handler) handleChatCompletion(w http.ResponseWriter, r *http.Request) {
 
 				Choices: []ChatCompletionChoice{
 					{
-						Delta: &ChatCompletionMessage{
-							Role: oaiMessageRole(completion.Message.Role),
-						},
-
+						Delta:        &ChatCompletionMessage{},
 						FinishReason: oaiFinishReason(reason),
 					},
 				},
@@ -242,17 +281,28 @@ func (h *Handler) handleChatCompletion(w http.ResponseWriter, r *http.Request) {
 		}
 
 		if completion.Message != nil {
+			message := &ChatCompletionMessage{
+				Role: oaiMessageRole(completion.Message.Role),
+			}
+
+			if content := completion.Message.Text(); content != "" {
+				message.Content = &content
+			}
+
+			if refusal := completion.Message.Refusal(); refusal != "" {
+				message.Refusal = &refusal
+			}
+
+			if val := oaiToolCalls(completion.Message.Content); len(val) > 0 {
+				message.Content = nil
+				message.Refusal = nil
+
+				message.ToolCalls = val
+			}
+
 			result.Choices = []ChatCompletionChoice{
 				{
-					Message: &ChatCompletionMessage{
-						Role: oaiMessageRole(completion.Message.Role),
-
-						Content: completion.Message.Text(),
-						Refusal: completion.Message.Refusal(),
-
-						ToolCalls: oaiToolCalls(completion.Message.Content),
-					},
-
+					Message:      message,
 					FinishReason: oaiFinishReason(completion.Reason),
 				},
 			}
@@ -291,13 +341,16 @@ func toMessages(s []ChatCompletionMessage) ([]provider.Message, error) {
 		if len(m.Contents) == 0 {
 			if m.ToolCallID != "" {
 				result := provider.ToolResult{
-					ID:   m.ToolCallID,
-					Data: m.Content,
+					ID: m.ToolCallID,
+				}
+
+				if m.Content != nil {
+					result.Data = *m.Content
 				}
 
 				content = append(content, provider.ToolResultContent(result))
-			} else {
-				content = append(content, provider.TextContent(m.Content))
+			} else if m.Content != nil {
+				content = append(content, provider.TextContent(*m.Content))
 			}
 		}
 
@@ -503,10 +556,9 @@ func oaiToolCalls(content []provider.Content) []ToolCall {
 			continue
 		}
 
-		result = append(result, ToolCall{
+		call := ToolCall{
+			ID:    c.ToolCall.ID,
 			Index: i,
-
-			ID: c.ToolCall.ID,
 
 			Type: ToolTypeFunction,
 
@@ -514,7 +566,9 @@ func oaiToolCalls(content []provider.Content) []ToolCall {
 				Name:      c.ToolCall.Name,
 				Arguments: c.ToolCall.Arguments,
 			},
-		})
+		}
+
+		result = append(result, call)
 	}
 
 	return result
