@@ -281,8 +281,8 @@ func (c *Completer) convertMessageRequest(input []provider.Message, options *pro
 	}
 
 	req := &anthropic.MessageNewParams{
-		Model:     c.model,
-		MaxTokens: int64(4096),
+		Model:     anthropic.Model(c.model),
+		MaxTokens: int64(8192),
 	}
 
 	var system []anthropic.TextBlockParam
