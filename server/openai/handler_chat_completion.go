@@ -293,11 +293,11 @@ func (h *Handler) handleChatCompletion(w http.ResponseWriter, r *http.Request) {
 				message.Refusal = &refusal
 			}
 
-			if val := oaiToolCalls(completion.Message.Content); len(val) > 0 {
+			if calls := oaiToolCalls(completion.Message.Content); len(calls) > 0 {
 				message.Content = nil
 				message.Refusal = nil
 
-				message.ToolCalls = val
+				message.ToolCalls = calls
 			}
 
 			result.Choices = []ChatCompletionChoice{
@@ -385,7 +385,7 @@ func toMessages(s []ChatCompletionMessage) ([]provider.Message, error) {
 			}
 
 			if c.Type == MessageContentTypeAudio && c.Audio != nil {
-				data, err := base64.StdEncoding.DecodeString(c.File.Data)
+				data, err := base64.StdEncoding.DecodeString(c.Audio.Data)
 
 				if err != nil {
 					return nil, err
