@@ -13,7 +13,7 @@ require (
 	github.com/go-chi/cors v1.2.1
 	github.com/google/generative-ai-go v0.20.1
 	github.com/google/uuid v1.6.0
-	github.com/mark3labs/mcp-go v0.29.0
+	github.com/mark3labs/mcp-go v0.30.0
 	github.com/openai/openai-go v1.1.0
 	github.com/replicate/replicate-go v0.26.0
 	github.com/stretchr/testify v1.10.0

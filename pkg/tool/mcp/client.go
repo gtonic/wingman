@@ -19,14 +19,6 @@ type Client struct {
 	transportFn func() (transport.Interface, error)
 }
 
-func NewStdio(command string, env, args []string) (*Client, error) {
-	return &Client{
-		transportFn: func() (transport.Interface, error) {
-			return transport.NewStdio(command, env, args...), nil
-		},
-	}, nil
-}
-
 func NewSSE(url string, headers map[string]string) (*Client, error) {
 	return &Client{
 		transportFn: func() (transport.Interface, error) {
@@ -37,6 +29,28 @@ func NewSSE(url string, headers map[string]string) (*Client, error) {
 			}
 
 			return transport.NewSSE(url, options...)
+		},
+	}, nil
+}
+
+func NewHTTP(url string, headers map[string]string) (*Client, error) {
+	return &Client{
+		transportFn: func() (transport.Interface, error) {
+			var options []transport.StreamableHTTPCOption
+
+			if len(headers) > 0 {
+				options = append(options, transport.WithHTTPHeaders(headers))
+			}
+
+			return transport.NewStreamableHTTP(url, options...)
+		},
+	}, nil
+}
+
+func NewStdio(command string, env, args []string) (*Client, error) {
+	return &Client{
+		transportFn: func() (transport.Interface, error) {
+			return transport.NewStdio(command, env, args...), nil
 		},
 	}, nil
 }
