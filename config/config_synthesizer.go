@@ -5,7 +5,6 @@ import (
 	"strings"
 
 	"github.com/adrianliechti/wingman/pkg/provider"
-	"github.com/adrianliechti/wingman/pkg/provider/elevenlabs"
 	"github.com/adrianliechti/wingman/pkg/provider/openai"
 )
 
@@ -35,25 +34,12 @@ func (cfg *Config) Synthesizer(id string) (provider.Synthesizer, error) {
 
 func createSynthesizer(cfg providerConfig, model modelContext) (provider.Synthesizer, error) {
 	switch strings.ToLower(cfg.Type) {
-	case "elevenlabs":
-		return elevenlabsSynthesizer(cfg, model)
-
 	case "openai":
 		return openaiSynthesizer(cfg, model)
 
 	default:
 		return nil, errors.New("invalid synthesizer type: " + cfg.Type)
 	}
-}
-
-func elevenlabsSynthesizer(cfg providerConfig, model modelContext) (provider.Synthesizer, error) {
-	var options []elevenlabs.Option
-
-	if cfg.Token != "" {
-		options = append(options, elevenlabs.WithToken(cfg.Token))
-	}
-
-	return elevenlabs.NewSynthesizer(cfg.URL, model.ID, options...)
 }
 
 func openaiSynthesizer(cfg providerConfig, model modelContext) (provider.Synthesizer, error) {
