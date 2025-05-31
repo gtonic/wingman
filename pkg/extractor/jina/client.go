@@ -51,9 +51,31 @@ func (c *Client) Extract(ctx context.Context, input extractor.Input, options *ex
 		"url": *input.URL,
 	}
 
+	format := "text"
+	contentType := "text/plain"
+
+	if options.Format != nil {
+		switch *options.Format {
+		case extractor.FormatText:
+			format = "text"
+			contentType = "text/plain"
+
+		case extractor.FormatImage:
+			format = "pageshot"
+			contentType = "image/png"
+
+		case extractor.FormatPDF:
+			format = "pdf"
+			contentType = "application/pdf"
+
+		default:
+			return nil, extractor.ErrUnsupported
+		}
+	}
+
 	req, _ := http.NewRequestWithContext(ctx, "POST", c.url, jsonReader(body))
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("X-Return-Format", "text")
+	req.Header.Set("X-Return-Format", format)
 
 	if c.token != "" {
 		req.Header.Set("Authorization", "Bearer "+c.token)
@@ -79,7 +101,7 @@ func (c *Client) Extract(ctx context.Context, input extractor.Input, options *ex
 
 	return &extractor.Document{
 		Content:     data,
-		ContentType: "text/plain",
+		ContentType: contentType,
 	}, nil
 }
 

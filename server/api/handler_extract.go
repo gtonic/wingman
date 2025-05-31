@@ -55,6 +55,11 @@ func (h *Handler) handleExtract(w http.ResponseWriter, r *http.Request) {
 
 	options := &extractor.ExtractOptions{}
 
+	if val := valueFormat(r); val != "" {
+		format := extractor.Format(val)
+		options.Format = &format
+	}
+
 	document, err := p.Extract(r.Context(), input, options)
 
 	if err != nil {

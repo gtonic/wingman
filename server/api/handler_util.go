@@ -27,6 +27,14 @@ func valueModel(r *http.Request) string {
 	return ""
 }
 
+func valueFormat(r *http.Request) string {
+	if val := r.FormValue("format"); val != "" {
+		return val
+	}
+
+	return ""
+}
+
 func valueLanguage(r *http.Request) string {
 	if val := r.FormValue("lang"); val != "" {
 		return val

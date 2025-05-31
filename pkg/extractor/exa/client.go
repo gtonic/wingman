@@ -44,6 +44,12 @@ func (c *Client) Extract(ctx context.Context, input extractor.Input, options *ex
 		return nil, extractor.ErrUnsupported
 	}
 
+	if options.Format != nil {
+		if *options.Format != extractor.FormatText {
+			return nil, extractor.ErrUnsupported
+		}
+	}
+
 	body, _ := json.Marshal(&ContentsRequest{
 		URLs: []string{*input.URL},
 

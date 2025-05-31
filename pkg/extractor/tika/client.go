@@ -52,6 +52,12 @@ func (c *Client) Extract(ctx context.Context, input extractor.Input, options *ex
 		return nil, extractor.ErrUnsupported
 	}
 
+	if options.Format != nil {
+		if *options.Format != extractor.FormatText {
+			return nil, extractor.ErrUnsupported
+		}
+	}
+
 	file := *input.File
 
 	if !isSupported(file) {

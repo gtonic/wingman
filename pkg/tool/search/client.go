@@ -71,9 +71,8 @@ func (c *Client) Execute(ctx context.Context, name string, parameters map[string
 
 	for _, r := range data {
 		result := Result{
-			URL: r.Source,
-
 			Title:   r.Title,
+			Source:  r.Source,
 			Content: r.Content,
 		}
 
