@@ -43,15 +43,16 @@ func NewCompleter(url string, options ...Option) (*Completer, error) {
 
 	url = strings.TrimPrefix(c.url, "grpc://")
 
-	conn, err := grpc.Dial(url,
+	client, err := grpc.NewClient(url,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(100*1024*1024)), // 100MB max receive message size
 	)
 
 	if err != nil {
 		return nil, err
 	}
 
-	c.client = NewCompleterClient(conn)
+	c.client = NewCompleterClient(client)
 
 	return c, nil
 }

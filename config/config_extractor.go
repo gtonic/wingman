@@ -121,10 +121,10 @@ func createExtractor(cfg extractorConfig, context extractorContext) (extractor.P
 	case "tika":
 		return tikaExtractor(cfg)
 
-	case "unstructured", "wingman-extractor":
+	case "unstructured":
 		return unstructuredExtractor(cfg)
 
-	case "custom", "wingman-reader":
+	case "custom", "wingman-extractor", "wingman-reader":
 		return customExtractor(cfg)
 
 	default:
