@@ -109,7 +109,7 @@ func createExtractor(cfg extractorConfig, context extractorContext) (extractor.P
 	case "exa":
 		return exaExtractor(cfg)
 
-	case "jina", "wingman-reader":
+	case "jina":
 		return jinaExtractor(cfg)
 
 	case "tavily":
@@ -124,7 +124,7 @@ func createExtractor(cfg extractorConfig, context extractorContext) (extractor.P
 	case "unstructured", "wingman-extractor":
 		return unstructuredExtractor(cfg)
 
-	case "custom":
+	case "custom", "wingman-reader":
 		return customExtractor(cfg)
 
 	default:

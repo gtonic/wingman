@@ -51,8 +51,30 @@ func (c *Client) Extract(ctx context.Context, input extractor.Input, options *ex
 		options = new(extractor.ExtractOptions)
 	}
 
+	format := Format_FORMAT_TEXT
+
+	if options.Format != nil {
+		switch *options.Format {
+		case extractor.FormatText:
+			format = Format_FORMAT_TEXT
+
+		case extractor.FormatImage:
+			format = Format_FORMAT_IMAGE
+
+		case extractor.FormatPDF:
+			format = Format_FORMAT_PDF
+
+		default:
+			return nil, extractor.ErrUnsupported
+		}
+	}
+
 	req := &ExtractRequest{
-		Url: input.URL,
+		Format: format.Enum(),
+	}
+
+	if input.URL != nil {
+		req.Url = input.URL
 	}
 
 	if input.File != nil {

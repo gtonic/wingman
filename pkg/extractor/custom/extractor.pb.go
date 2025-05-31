@@ -21,10 +21,60 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+type Format int32
+
+const (
+	Format_FORMAT_TEXT  Format = 0
+	Format_FORMAT_IMAGE Format = 1
+	Format_FORMAT_PDF   Format = 2
+)
+
+// Enum value maps for Format.
+var (
+	Format_name = map[int32]string{
+		0: "FORMAT_TEXT",
+		1: "FORMAT_IMAGE",
+		2: "FORMAT_PDF",
+	}
+	Format_value = map[string]int32{
+		"FORMAT_TEXT":  0,
+		"FORMAT_IMAGE": 1,
+		"FORMAT_PDF":   2,
+	}
+)
+
+func (x Format) Enum() *Format {
+	p := new(Format)
+	*p = x
+	return p
+}
+
+func (x Format) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (Format) Descriptor() protoreflect.EnumDescriptor {
+	return file_extractor_proto_enumTypes[0].Descriptor()
+}
+
+func (Format) Type() protoreflect.EnumType {
+	return &file_extractor_proto_enumTypes[0]
+}
+
+func (x Format) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use Format.Descriptor instead.
+func (Format) EnumDescriptor() ([]byte, []int) {
+	return file_extractor_proto_rawDescGZIP(), []int{0}
+}
+
 type ExtractRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	File          *File                  `protobuf:"bytes,1,opt,name=file,proto3,oneof" json:"file,omitempty"`
 	Url           *string                `protobuf:"bytes,2,opt,name=url,proto3,oneof" json:"url,omitempty"`
+	Format        *Format                `protobuf:"varint,3,opt,name=format,proto3,enum=extractor.Format,oneof" json:"format,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -71,6 +121,13 @@ func (x *ExtractRequest) GetUrl() string {
 		return *x.Url
 	}
 	return ""
+}
+
+func (x *ExtractRequest) GetFormat() Format {
+	if x != nil && x.Format != nil {
+		return *x.Format
+	}
+	return Format_FORMAT_TEXT
 }
 
 type File struct {
@@ -137,16 +194,23 @@ var File_extractor_proto protoreflect.FileDescriptor
 
 const file_extractor_proto_rawDesc = "" +
 	"\n" +
-	"\x0fextractor.proto\x12\textractor\"b\n" +
+	"\x0fextractor.proto\x12\textractor\"\x9d\x01\n" +
 	"\x0eExtractRequest\x12(\n" +
 	"\x04file\x18\x01 \x01(\v2\x0f.extractor.FileH\x00R\x04file\x88\x01\x01\x12\x15\n" +
-	"\x03url\x18\x02 \x01(\tH\x01R\x03url\x88\x01\x01B\a\n" +
+	"\x03url\x18\x02 \x01(\tH\x01R\x03url\x88\x01\x01\x12.\n" +
+	"\x06format\x18\x03 \x01(\x0e2\x11.extractor.FormatH\x02R\x06format\x88\x01\x01B\a\n" +
 	"\x05_fileB\x06\n" +
-	"\x04_url\"W\n" +
+	"\x04_urlB\t\n" +
+	"\a_format\"W\n" +
 	"\x04File\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x18\n" +
 	"\acontent\x18\x02 \x01(\fR\acontent\x12!\n" +
-	"\fcontent_type\x18\x03 \x01(\tR\vcontentType2D\n" +
+	"\fcontent_type\x18\x03 \x01(\tR\vcontentType*;\n" +
+	"\x06Format\x12\x0f\n" +
+	"\vFORMAT_TEXT\x10\x00\x12\x10\n" +
+	"\fFORMAT_IMAGE\x10\x01\x12\x0e\n" +
+	"\n" +
+	"FORMAT_PDF\x10\x022D\n" +
 	"\tExtractor\x127\n" +
 	"\aExtract\x12\x19.extractor.ExtractRequest\x1a\x0f.extractor.File\"\x00B>Z<github.com/adrianliechti/wingman/pkg/extractor/custom;customb\x06proto3"
 
@@ -162,20 +226,23 @@ func file_extractor_proto_rawDescGZIP() []byte {
 	return file_extractor_proto_rawDescData
 }
 
+var file_extractor_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_extractor_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
 var file_extractor_proto_goTypes = []any{
-	(*ExtractRequest)(nil), // 0: extractor.ExtractRequest
-	(*File)(nil),           // 1: extractor.File
+	(Format)(0),            // 0: extractor.Format
+	(*ExtractRequest)(nil), // 1: extractor.ExtractRequest
+	(*File)(nil),           // 2: extractor.File
 }
 var file_extractor_proto_depIdxs = []int32{
-	1, // 0: extractor.ExtractRequest.file:type_name -> extractor.File
-	0, // 1: extractor.Extractor.Extract:input_type -> extractor.ExtractRequest
-	1, // 2: extractor.Extractor.Extract:output_type -> extractor.File
-	2, // [2:3] is the sub-list for method output_type
-	1, // [1:2] is the sub-list for method input_type
-	1, // [1:1] is the sub-list for extension type_name
-	1, // [1:1] is the sub-list for extension extendee
-	0, // [0:1] is the sub-list for field type_name
+	2, // 0: extractor.ExtractRequest.file:type_name -> extractor.File
+	0, // 1: extractor.ExtractRequest.format:type_name -> extractor.Format
+	1, // 2: extractor.Extractor.Extract:input_type -> extractor.ExtractRequest
+	2, // 3: extractor.Extractor.Extract:output_type -> extractor.File
+	3, // [3:4] is the sub-list for method output_type
+	2, // [2:3] is the sub-list for method input_type
+	2, // [2:2] is the sub-list for extension type_name
+	2, // [2:2] is the sub-list for extension extendee
+	0, // [0:2] is the sub-list for field type_name
 }
 
 func init() { file_extractor_proto_init() }
@@ -189,13 +256,14 @@ func file_extractor_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_extractor_proto_rawDesc), len(file_extractor_proto_rawDesc)),
-			NumEnums:      0,
+			NumEnums:      1,
 			NumMessages:   2,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
 		GoTypes:           file_extractor_proto_goTypes,
 		DependencyIndexes: file_extractor_proto_depIdxs,
+		EnumInfos:         file_extractor_proto_enumTypes,
 		MessageInfos:      file_extractor_proto_msgTypes,
 	}.Build()
 	File_extractor_proto = out.File

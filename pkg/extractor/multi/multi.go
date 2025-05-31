@@ -2,7 +2,6 @@ package multi
 
 import (
 	"context"
-	"errors"
 
 	"github.com/adrianliechti/wingman/pkg/extractor"
 )
@@ -28,11 +27,12 @@ func (e *Extractor) Extract(ctx context.Context, input extractor.Input, options 
 		result, err := p.Extract(ctx, input, options)
 
 		if err != nil {
-			if errors.Is(err, extractor.ErrUnsupported) {
-				continue
-			}
+			continue
+			// if errors.Is(err, extractor.ErrUnsupported) {
+			// 	continue
+			// }
 
-			return nil, err
+			// return nil, err
 		}
 
 		return result, nil
