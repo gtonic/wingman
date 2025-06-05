@@ -45,14 +45,13 @@ type Connector struct {
 	completer             provider.Completer
 	pollInterval          time.Duration
 	receiveMode           string
-	whitelistedNumbersMap map[string]struct{}
-	isWhitelistActive     bool
 	conversationHistories map[string][]provider.Message
 	maxHistoryMessages    int
 	historyStorageType    string
 	historySQLitePath     string
 	sqlDB                 *sql.DB
 	messagePrefixTrigger  string
+	llmTimeoutSeconds     int // Timeout for LLM completion in seconds
 }
 
 type Config struct {
@@ -62,11 +61,11 @@ type Config struct {
 	Completer            provider.Completer
 	PollInterval         time.Duration
 	ReceiveMode          string
-	WhitelistedNumbers   []string
 	MaxHistoryMessages   int
 	HistoryStorageType   string
 	HistorySQLitePath    string
 	MessagePrefixTrigger string
+	LLMTimeoutSeconds    int // Timeout for LLM completion in seconds
 }
 
 func New(id string, cfg Config) (*Connector, error) {
@@ -84,25 +83,17 @@ func New(id string, cfg Config) (*Connector, error) {
 		cfg.PollInterval = 5 * time.Second
 	}
 
+	llmTimeout := cfg.LLMTimeoutSeconds
+	if llmTimeout <= 0 {
+		llmTimeout = 160 // Default to 160 seconds if not set or invalid
+	}
+
 	receiveMode := strings.ToLower(cfg.ReceiveMode)
 	if receiveMode == "" {
 		receiveMode = "poll"
 	}
 	if receiveMode != "poll" && receiveMode != "websocket" {
 		return nil, fmt.Errorf("signal connector %s: invalid receive_mode '%s'", id, cfg.ReceiveMode)
-	}
-
-	whitelistedMap := make(map[string]struct{})
-	isWhitelistActive := len(cfg.WhitelistedNumbers) > 0
-	if isWhitelistActive {
-		for _, num := range cfg.WhitelistedNumbers {
-			if num != "" {
-				whitelistedMap[num] = struct{}{}
-			}
-		}
-		log.Printf("Signal connector (ID: %s): Whitelist active. Allowed: %v", id, cfg.WhitelistedNumbers)
-	} else {
-		log.Printf("Signal connector (ID: %s): Whitelist empty. Default 'Note to Self' and whitelisted group behavior.", id)
 	}
 
 	maxHistory := cfg.MaxHistoryMessages
@@ -163,14 +154,13 @@ func New(id string, cfg Config) (*Connector, error) {
 		completer:             cfg.Completer,
 		pollInterval:          cfg.PollInterval,
 		receiveMode:           receiveMode,
-		whitelistedNumbersMap: whitelistedMap,
-		isWhitelistActive:     isWhitelistActive,
 		conversationHistories: make(map[string][]provider.Message),
 		maxHistoryMessages:    maxHistory,
 		historyStorageType:    historyStorage,
 		historySQLitePath:     actualSQLitePath,
 		sqlDB:                 db,
 		messagePrefixTrigger:  messagePrefixTrigger,
+		llmTimeoutSeconds:     llmTimeout,
 	}, nil
 }
 
@@ -432,6 +422,10 @@ func (c *Connector) processReceivedMessagePayload(ctx context.Context, payload [
 		log.Printf("Signal connector (ID: %s): Envelope or source is missing. Cannot process. Payload: %s", c.id, string(payload))
 		return nil
 	}
+	// Override sourceName with accountUsername if available
+	if c.accountUsername != "" {
+		receivedMsg.Envelope.SourceName = c.accountUsername
+	}
 	actualSender = receivedMsg.Envelope.Source
 	isFromSelf = (actualSender == c.accountNumber)
 
@@ -512,34 +506,24 @@ func (c *Connector) processReceivedMessagePayload(ctx context.Context, payload [
 		shouldProcessForLLM = true
 		log.Printf("Signal connector (ID: %s): Processing 'Note to Self' 1-on-1.", c.id)
 	} else if messageSourceType == "sentMessageSyncGroup" {
-		// Always process group messages, regardless of whitelist
-		log.Printf("Signal connector (ID: %s): Processing message from self to group %s (whitelist ignored).", c.id, conversationContextID)
+		log.Printf("Signal connector (ID: %s): Processing message from self to group %s.", c.id, conversationContextID)
 		shouldProcessForLLM = true
 	} else if messageSourceType == "dataMessage" {
 		if isFromSelf {
 			if conversationContextID != actualSender && conversationContextID != "" { // Group message from self
-				// Always process group messages, regardless of whitelist
-				log.Printf("Signal connector (ID: %s): Processing DataMessage from self to group %s (whitelist ignored).", c.id, conversationContextID)
+				log.Printf("Signal connector (ID: %s): Processing DataMessage from self to group %s.", c.id, conversationContextID)
 				shouldProcessForLLM = true
 			} else {
-				log.Printf("Signal connector (ID: %s): Ignoring DataMessage from self (not 'Note to Self' or group). Sender: %s, Context: %s", c.id, actualSender, conversationContextID)
+				log.Printf("Signal connector (ID: %s): Processing DataMessage from self (not 'Note to Self' or group). Sender: %s, Context: %s", c.id, actualSender, conversationContextID)
+				shouldProcessForLLM = true
 			}
 		} else { // DataMessage from other
 			if conversationContextID != actualSender && conversationContextID != "" { // Group message from other
-				// Always process group messages, regardless of whitelist
-				log.Printf("Signal connector (ID: %s): Processing DataMessage from other to group %s (whitelist ignored).", c.id, conversationContextID)
+				log.Printf("Signal connector (ID: %s): Processing DataMessage from other to group %s.", c.id, conversationContextID)
 				shouldProcessForLLM = true
 			} else {
-				if !c.isWhitelistActive {
-					log.Printf("Signal connector (ID: %s): Whitelist inactive. Ignoring message from external sender %s.", c.id, actualSender)
-				} else {
-					if _, isWhitelisted := c.whitelistedNumbersMap[conversationContextID]; isWhitelisted {
-						log.Printf("Signal connector (ID: %s): Sender %s is whitelisted. Processing message.", c.id, conversationContextID)
-						shouldProcessForLLM = true
-					} else {
-						log.Printf("Signal connector (ID: %s): Sender %s not in whitelist. Ignoring.", c.id, conversationContextID)
-					}
-				}
+				log.Printf("Signal connector (ID: %s): Processing DataMessage from external sender %s.", c.id, actualSender)
+				shouldProcessForLLM = true
 			}
 		}
 	}
@@ -630,7 +614,7 @@ func (c *Connector) processReceivedMessagePayload(ctx context.Context, payload [
 
 	log.Printf("Signal connector (ID: %s): Sending to LLM for context %s (actual sender %s, history len %d): %+v", c.id, conversationContextID, actualSender, len(history), history)
 
-	completeCtx, cancelComplete := context.WithTimeout(ctx, 30*time.Second)
+	completeCtx, cancelComplete := context.WithTimeout(ctx, time.Duration(c.llmTimeoutSeconds)*time.Second)
 	defer cancelComplete()
 
 	llmResponse, err := c.completer.Complete(completeCtx, history, nil)
@@ -666,14 +650,11 @@ func (c *Connector) processReceivedMessagePayload(ctx context.Context, payload [
 
 		// Determine sender for the API call
 		apiSender := c.accountNumber
-		// Removed unused variable isGroupRecipient
-		// For group replies, always use accountNumber as sender, not username
-		/*
-			if isGroupRecipient && c.accountUsername != "" {
-				apiSender = c.accountUsername
-				log.Printf("Signal connector (ID: %s): Using account username '%s' as sender for group reply to %s", c.id, apiSender, conversationContextID)
-			}
-		*/
+		// For group replies, use accountUsername if set and contains a dot, else fallback to accountNumber
+		if conversationContextID != actualSender && conversationContextID != c.accountNumber && c.accountUsername != "" && strings.Contains(c.accountUsername, ".") {
+			apiSender = c.accountUsername
+			log.Printf("Signal connector (ID: %s): Using account username '%s' as sender for group reply to %s", c.id, apiSender, conversationContextID)
+		}
 
 		if err := c.sendSignalMessage(ctx, apiSender, conversationContextID, replyText); err != nil {
 			log.Printf("Error sending Signal reply to %s (using sender %s): %v", conversationContextID, apiSender, err)
