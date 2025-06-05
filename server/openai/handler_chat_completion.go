@@ -360,15 +360,14 @@ func toMessages(s []ChatCompletionMessage) ([]provider.Message, error) {
 			}
 
 			if c.Type == MessageContentTypeFile && c.File != nil {
-				data, err := base64.StdEncoding.DecodeString(c.File.Data)
+				file, err := toFile(c.File.Data)
 
 				if err != nil {
 					return nil, err
 				}
 
-				file := &provider.File{
-					Name:    c.File.Name,
-					Content: data,
+				if c.File.Name != "" {
+					file.Name = c.File.Name
 				}
 
 				content = append(content, provider.FileContent(file))
@@ -401,7 +400,6 @@ func toMessages(s []ChatCompletionMessage) ([]provider.Message, error) {
 
 				content = append(content, provider.FileContent(file))
 			}
-
 		}
 
 		for _, c := range m.ToolCalls {

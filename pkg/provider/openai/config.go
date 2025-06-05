@@ -47,7 +47,7 @@ func (c *Config) Options() []option.RequestOption {
 
 		options = append(options,
 			option.WithHTTPClient(c.client),
-			azure.WithEndpoint(c.url, "2025-01-01-preview"),
+			azure.WithEndpoint(c.url, "2025-04-01-preview"),
 		)
 
 		if c.token != "" {

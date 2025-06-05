@@ -306,11 +306,20 @@ func (c *Completer) convertMessages(input []provider.Message) ([]openai.ChatComp
 
 					switch c.File.ContentType {
 					case "image/png", "image/jpeg", "image/webp", "image/gif":
-						imageURL := openai.ChatCompletionContentPartImageImageURLParam{
+						image := openai.ChatCompletionContentPartImageImageURLParam{
 							URL: "data:" + mime + ";base64," + content,
 						}
 
-						part := openai.ImageContentPart(imageURL)
+						part := openai.ImageContentPart(image)
+						parts = append(parts, part)
+
+					case "application/pdf":
+						file := openai.ChatCompletionContentPartFileFileParam{
+							Filename: openai.String(c.File.Name),
+							FileData: openai.String("data:" + mime + ";base64," + content),
+						}
+
+						part := openai.FileContentPart(file)
 						parts = append(parts, part)
 
 					default:
