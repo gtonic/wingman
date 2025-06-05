@@ -512,45 +512,47 @@ func (c *Connector) processReceivedMessagePayload(ctx context.Context, payload [
 		shouldProcessForLLM = true
 		log.Printf("Signal connector (ID: %s): Processing 'Note to Self' 1-on-1.", c.id)
 	} else if messageSourceType == "sentMessageSyncGroup" {
-		if !c.isWhitelistActive {
-			log.Printf("Signal connector (ID: %s): Whitelist inactive. Ignoring message from self to group %s.", c.id, conversationContextID)
-		} else {
-			if _, isWhitelisted := c.whitelistedNumbersMap[conversationContextID]; isWhitelisted {
-				log.Printf("Signal connector (ID: %s): Group %s is whitelisted. Processing message from self to group.", c.id, conversationContextID)
-				shouldProcessForLLM = true
-			} else {
-				log.Printf("Signal connector (ID: %s): Group %s not in whitelist. Ignoring message from self to group.", c.id, conversationContextID)
-			}
-		}
+		// Always process group messages, regardless of whitelist
+		log.Printf("Signal connector (ID: %s): Processing message from self to group %s (whitelist ignored).", c.id, conversationContextID)
+		shouldProcessForLLM = true
 	} else if messageSourceType == "dataMessage" {
 		if isFromSelf {
 			if conversationContextID != actualSender && conversationContextID != "" { // Group message from self
-				if !c.isWhitelistActive {
-					log.Printf("Signal connector (ID: %s): Whitelist inactive. Ignoring DataMessage from self to group %s.", c.id, conversationContextID)
-				} else if _, isWhitelisted := c.whitelistedNumbersMap[conversationContextID]; isWhitelisted {
-					log.Printf("Signal connector (ID: %s): Group %s is whitelisted. Processing DataMessage from self to group.", c.id, conversationContextID)
-					shouldProcessForLLM = true
-				} else {
-					log.Printf("Signal connector (ID: %s): Group %s not in whitelist. Ignoring DataMessage from self to group.", c.id, conversationContextID)
-				}
+				// Always process group messages, regardless of whitelist
+				log.Printf("Signal connector (ID: %s): Processing DataMessage from self to group %s (whitelist ignored).", c.id, conversationContextID)
+				shouldProcessForLLM = true
 			} else {
-				log.Printf("Signal connector (ID: %s): Ignoring DataMessage from self (not 'Note to Self' or whitelisted group). Sender: %s, Context: %s", c.id, actualSender, conversationContextID)
+				log.Printf("Signal connector (ID: %s): Ignoring DataMessage from self (not 'Note to Self' or group). Sender: %s, Context: %s", c.id, actualSender, conversationContextID)
 			}
 		} else { // DataMessage from other
-			if !c.isWhitelistActive {
-				log.Printf("Signal connector (ID: %s): Whitelist inactive. Ignoring message from external sender %s / group %s.", c.id, actualSender, conversationContextID)
+			if conversationContextID != actualSender && conversationContextID != "" { // Group message from other
+				// Always process group messages, regardless of whitelist
+				log.Printf("Signal connector (ID: %s): Processing DataMessage from other to group %s (whitelist ignored).", c.id, conversationContextID)
+				shouldProcessForLLM = true
 			} else {
-				if _, isWhitelisted := c.whitelistedNumbersMap[conversationContextID]; isWhitelisted {
-					log.Printf("Signal connector (ID: %s): Sender/Group %s is whitelisted. Processing message.", c.id, conversationContextID)
-					shouldProcessForLLM = true
+				if !c.isWhitelistActive {
+					log.Printf("Signal connector (ID: %s): Whitelist inactive. Ignoring message from external sender %s.", c.id, actualSender)
 				} else {
-					log.Printf("Signal connector (ID: %s): Sender/Group %s not in whitelist. Ignoring.", c.id, conversationContextID)
+					if _, isWhitelisted := c.whitelistedNumbersMap[conversationContextID]; isWhitelisted {
+						log.Printf("Signal connector (ID: %s): Sender %s is whitelisted. Processing message.", c.id, conversationContextID)
+						shouldProcessForLLM = true
+					} else {
+						log.Printf("Signal connector (ID: %s): Sender %s not in whitelist. Ignoring.", c.id, conversationContextID)
+					}
 				}
 			}
 		}
 	}
 
 	if !shouldProcessForLLM {
+		// Send read receipt after processing the message (even if not processed for LLM)
+		if receivedMsg.Envelope != nil && actualSender != "" && receivedMsg.Envelope.Timestamp != 0 {
+			if err := c.sendReadReceipt(ctx, actualSender, receivedMsg.Envelope.Timestamp); err != nil {
+				log.Printf("Signal connector (ID: %s): Failed to send read receipt to API for %s at %d: %v", c.id, actualSender, receivedMsg.Envelope.Timestamp, err)
+			} else {
+				log.Printf("Signal connector (ID: %s): Sent read receipt to API for %s at %d", c.id, actualSender, receivedMsg.Envelope.Timestamp)
+			}
+		}
 		return nil
 	}
 
@@ -664,11 +666,14 @@ func (c *Connector) processReceivedMessagePayload(ctx context.Context, payload [
 
 		// Determine sender for the API call
 		apiSender := c.accountNumber
-		isGroupRecipient := conversationContextID != actualSender && conversationContextID != c.accountNumber // Heuristic: if context is not the actual sender and not self, it's likely a group
-		if isGroupRecipient && c.accountUsername != "" {
-			apiSender = c.accountUsername
-			log.Printf("Signal connector (ID: %s): Using account username '%s' as sender for group reply to %s", c.id, apiSender, conversationContextID)
-		}
+		// Removed unused variable isGroupRecipient
+		// For group replies, always use accountNumber as sender, not username
+		/*
+			if isGroupRecipient && c.accountUsername != "" {
+				apiSender = c.accountUsername
+				log.Printf("Signal connector (ID: %s): Using account username '%s' as sender for group reply to %s", c.id, apiSender, conversationContextID)
+			}
+		*/
 
 		if err := c.sendSignalMessage(ctx, apiSender, conversationContextID, replyText); err != nil {
 			log.Printf("Error sending Signal reply to %s (using sender %s): %v", conversationContextID, apiSender, err)
@@ -680,6 +685,14 @@ func (c *Connector) processReceivedMessagePayload(ctx context.Context, payload [
 			log.Printf("Signal connector (ID: %s): LLM response or message was nil for context %s.", c.id, conversationContextID)
 		} else {
 			log.Printf("Signal connector (ID: %s): LLM provided empty reply for context %s.", c.id, conversationContextID)
+		}
+	}
+	// Send read receipt after processing the message
+	if receivedMsg.Envelope != nil && actualSender != "" && receivedMsg.Envelope.Timestamp != 0 {
+		if err := c.sendReadReceipt(ctx, actualSender, receivedMsg.Envelope.Timestamp); err != nil {
+			log.Printf("Signal connector (ID: %s): Failed to send read receipt to API for %s at %d: %v", c.id, actualSender, receivedMsg.Envelope.Timestamp, err)
+		} else {
+			log.Printf("Signal connector (ID: %s): Sent read receipt to API for %s at %d", c.id, actualSender, receivedMsg.Envelope.Timestamp)
 		}
 	}
 	return nil
@@ -787,6 +800,40 @@ func (c *Connector) sendSignalMessage(ctx context.Context, apiSender, recipient 
 			return fmt.Errorf("failed to send message, status %d: %s", resp.StatusCode, sendErr.Error)
 		}
 		return fmt.Errorf("failed to send message, status %d: %s", resp.StatusCode, string(bodyBytes))
+	}
+	return nil
+}
+
+// sendReadReceipt sends a "read" receipt to the API for the given recipient and timestamp.
+func (c *Connector) sendReadReceipt(ctx context.Context, recipient string, timestamp int64) error {
+	apiURL, err := url.JoinPath(c.url, "/v1/receipts/")
+	if err != nil {
+		return fmt.Errorf("failed to create receipts URL: %w", err)
+	}
+	apiURL += url.PathEscape(recipient)
+	body := map[string]interface{}{
+		"receipt_type": "read",
+		"recipient":    recipient,
+		"timestamp":    timestamp,
+	}
+	jsonData, err := json.Marshal(body)
+	if err != nil {
+		return fmt.Errorf("failed to marshal read receipt: %w", err)
+	}
+	req, err := http.NewRequestWithContext(ctx, "POST", apiURL, bytes.NewBuffer(jsonData))
+	if err != nil {
+		return fmt.Errorf("failed to create POST request for read receipt: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("accept", "application/json")
+	resp, err := c.client.Do(req)
+	if err != nil {
+		return fmt.Errorf("failed to POST read receipt: %w", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
+		bodyBytes, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("failed to send read receipt, status %d: %s", resp.StatusCode, string(bodyBytes))
 	}
 	return nil
 }
