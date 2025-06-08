@@ -12,7 +12,7 @@ The LLM Platform or Inference Hub is an open-source product designed to simplify
 The platform integrates with a wide range of LLM providers, including but not limited to
 
 - OpenAI Platform and Azure OpenAI Service to access models such as GPT, DALL-E and Whisper
-- Anthropic, Cohere, ElevenLabs, Google, Groq, Jina, Mistral and Replicate for various specialised models.
+- Anthropic, Cohere, Google, Groq, Jina, Mistral and Replicate for various specialised models.
 - Local deployments such as Ollama, LLAMA.CPP, WHISPER.CPP and Mistral.RS for running models locally.
 - Community models via Hugging Face
 - Custom models via gRPC plugins
@@ -311,22 +311,6 @@ providers:
       
       huggingface-minilm-l6-2:
         id: sentence-transformers/all-MiniLM-L6-v2
-```
-
-
-#### Eleven Labs
-
-```yaml
-providers:
-  - type: elevenlabs
-    token: ${ELEVENLABS_API_KEY}
-
-    models:
-      elevenlabs-sarah:
-        id: EXAVITQu4vr4xnSDxMaL
-      
-      elevenlabs-charlie:
-        id: IKne3meq5aSn9XLyUdCD
 ```
 
 

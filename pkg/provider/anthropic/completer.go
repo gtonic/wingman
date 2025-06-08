@@ -83,6 +83,37 @@ func (c *Completer) completeStream(ctx context.Context, req anthropic.MessageNew
 	for stream.Next() {
 		event := stream.Current()
 
+		// HACK: handle empty tool use blocks
+		switch event.AsAny().(type) {
+		case anthropic.ContentBlockStopEvent:
+			block := &message.Content[len(message.Content)-1]
+
+			if block.Type == "tool_use" && len(block.Input) == 0 {
+				block.Input = json.RawMessage([]byte("{}"))
+
+				delta := provider.Completion{
+					ID:    message.ID,
+					Model: c.model,
+
+					Message: &provider.Message{
+						Role: provider.MessageRoleAssistant,
+
+						Content: []provider.Content{
+							provider.ToolCallContent(provider.ToolCall{
+								Arguments: "{}",
+							}),
+						},
+					},
+				}
+
+				result.Add(delta)
+
+				if err := options.Stream(ctx, delta); err != nil {
+					return nil, err
+				}
+			}
+		}
+
 		if err := message.Accumulate(event); err != nil {
 			return nil, err
 		}
@@ -250,8 +281,8 @@ func (c *Completer) convertMessageRequest(input []provider.Message, options *pro
 	}
 
 	req := &anthropic.MessageNewParams{
-		Model:     c.model,
-		MaxTokens: int64(4096),
+		Model:     anthropic.Model(c.model),
+		MaxTokens: int64(8192),
 	}
 
 	var system []anthropic.TextBlockParam
@@ -299,13 +330,13 @@ func (c *Completer) convertMessageRequest(input []provider.Message, options *pro
 					case "application/pdf":
 						block := anthropic.DocumentBlockParam{
 							Source: anthropic.DocumentBlockParamSourceUnion{
-								OfBase64PDFSource: &anthropic.Base64PDFSourceParam{
+								OfBase64: &anthropic.Base64PDFSourceParam{
 									Data: content,
 								},
 							},
 						}
 
-						blocks = append(blocks, anthropic.ContentBlockParamUnion{OfRequestDocumentBlock: &block})
+						blocks = append(blocks, anthropic.ContentBlockParamUnion{OfDocument: &block})
 
 					default:
 						return nil, errors.New("unsupported content type")
@@ -336,7 +367,7 @@ func (c *Completer) convertMessageRequest(input []provider.Message, options *pro
 					}
 
 					blocks = append(blocks, anthropic.ContentBlockParamUnion{
-						OfRequestToolUseBlock: &anthropic.ToolUseBlockParam{
+						OfToolUse: &anthropic.ToolUseBlockParam{
 							ID:    c.ToolCall.ID,
 							Name:  c.ToolCall.Name,
 							Input: input,
@@ -384,7 +415,7 @@ func (c *Completer) convertMessageRequest(input []provider.Message, options *pro
 		}
 
 		req.ToolChoice = anthropic.ToolChoiceUnionParam{
-			OfToolChoiceTool: &anthropic.ToolChoiceToolParam{
+			OfTool: &anthropic.ToolChoiceToolParam{
 				Name: options.Schema.Name,
 			},
 		}
@@ -432,18 +463,18 @@ func toContent(blocks []anthropic.ContentBlockUnion) []provider.Content {
 	return parts
 }
 
-func toCompletionResult(val anthropic.MessageStopReason) provider.CompletionReason {
+func toCompletionResult(val anthropic.StopReason) provider.CompletionReason {
 	switch val {
-	case anthropic.MessageStopReasonEndTurn:
+	case anthropic.StopReasonEndTurn:
 		return provider.CompletionReasonStop
 
-	case anthropic.MessageStopReasonMaxTokens:
+	case anthropic.StopReasonMaxTokens:
 		return provider.CompletionReasonLength
 
-	case anthropic.MessageStopReasonStopSequence:
+	case anthropic.StopReasonStopSequence:
 		return provider.CompletionReasonStop
 
-	case anthropic.MessageStopReasonToolUse:
+	case anthropic.StopReasonToolUse:
 		return provider.CompletionReasonTool
 
 	default:

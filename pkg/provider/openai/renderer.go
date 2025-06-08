@@ -4,13 +4,10 @@ import (
 	"bytes"
 	"context"
 	"encoding/base64"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
-	"mime/multipart"
 	"net/http"
-	"net/textproto"
 	"path"
 	"regexp"
 	"strings"
@@ -73,81 +70,63 @@ func (r *Renderer) Render(ctx context.Context, input string, options *provider.R
 		result.Content = data
 		result.ContentType = "image/png"
 	} else {
-		var b bytes.Buffer
-		w := multipart.NewWriter(&b)
+		var files []io.Reader
 
-		w.WriteField("model", r.model)
-		w.WriteField("prompt", input)
+		for n, i := range options.Images {
+			var imageName string
+			var imageType string
 
-		escapeQuotes := func(s string) string {
-			return strings.NewReplacer("\\", "\\\\", `"`, "\\\"").Replace(s)
-		}
-
-		for _, image := range options.Images {
-			imageName := image.Name
-			imageType := image.ContentType
-
-			if imageName == "" {
-				switch image.ContentType {
+			if i.ContentType != "" {
+				switch i.ContentType {
 				case "image/jpeg":
-					imageName = "image.jpg"
-				case "image/png":
-					imageName = "image.png"
-				case "image/webp":
-					imageName = "image.webp"
-				}
-			}
+					imageName = fmt.Sprintf("image-%d.jpg", n)
+					imageType = "image/jpeg"
 
-			if imageType == "" {
+				case "image/png":
+					imageName = fmt.Sprintf("image-%d.png", n)
+					imageType = "image/png"
+
+				case "image/webp":
+					imageName = fmt.Sprintf("image-%d.webp", n)
+					imageType = "image/webp"
+				}
+			} else if i.Name != "" {
 				switch path.Ext(imageName) {
 				case ".jpg", ".jpeg", ".jpe":
+					imageName = fmt.Sprintf("image-%d.jpg", n)
 					imageType = "image/jpeg"
+
 				case ".png":
+					imageName = fmt.Sprintf("image-%d.png", n)
 					imageType = "image/png"
+
 				case ".webp":
+					imageName = fmt.Sprintf("image-%d.webp", n)
 					imageType = "image/webp"
 				}
 			}
 
-			h := textproto.MIMEHeader{}
-			h.Set("Content-Type", image.ContentType)
-			h.Set("Content-Disposition", fmt.Sprintf(`form-data; name="image[]"; filename="%s"`, escapeQuotes(imageName)))
-
-			writer, _ := w.CreatePart(h)
-
-			if _, err := writer.Write(image.Content); err != nil {
-				return nil, err
+			if imageName == "" || imageType == "" {
+				return nil, errors.New("invalid image name or type")
 			}
+
+			files = append(files, openai.File(bytes.NewReader(i.Content), imageName, imageType))
 		}
 
-		w.Close()
+		image, err := r.images.Edit(ctx, openai.ImageEditParams{
+			Model:  r.model,
+			Prompt: input,
 
-		req, _ := http.NewRequest("POST", r.url+"images/edits", &b)
-		req.Header.Set("Content-Type", w.FormDataContentType())
-
-		if r.token != "" {
-			req.Header.Set("Authorization", "Bearer "+r.token)
-		}
-
-		resp, err := r.client.Do(req)
+			Image: openai.ImageEditParamsImageUnion{
+				OfFileArray: files,
+			},
+		})
 
 		if err != nil {
-			return nil, err
+			return nil, convertError(err)
 		}
 
-		defer resp.Body.Close()
-
-		if resp.StatusCode != http.StatusOK {
-			return nil, fmt.Errorf("failed to generate image: %s", resp.Status)
-		}
-
-		var response openai.ImagesResponse
-
-		if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
-			return nil, err
-		}
-
-		data, err := r.getData(ctx, response.Data[0])
+		data, err := r.getData(ctx, image.Data[0])
 
 		if err != nil {
 			return nil, err

@@ -65,6 +65,10 @@ func (c *Client) Execute(ctx context.Context, name string, parameters map[string
 
 	options := &provider.RenderOptions{}
 
+	if files, ok := tool.FilesFromContext(ctx); ok {
+		options.Images = files
+	}
+
 	image, err := c.provider.Render(ctx, prompt, options)
 
 	if err != nil {

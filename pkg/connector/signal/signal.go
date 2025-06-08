@@ -14,7 +14,6 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
-	_ "github.com/mattn/go-sqlite3" // SQLite driver
 
 	"github.com/adrianliechti/wingman/pkg/connector"
 	"github.com/adrianliechti/wingman/pkg/provider"
@@ -411,6 +410,13 @@ func (c *Connector) processReceivedMessagePayload(ctx context.Context, payload [
 		return nil
 	}
 
+	// Print the fully received message as pretty JSON for inspection
+	if msgJson, err := json.MarshalIndent(receivedMsg, "", "  "); err == nil {
+		log.Printf("Signal connector (ID: %s) FULL RECEIVED MESSAGE:\n%s", c.id, string(msgJson))
+	} else {
+		log.Printf("Signal connector (ID: %s) failed to marshal receivedMsg for debug print: %v", c.id, err)
+	}
+
 	log.Printf("Signal connector (ID: %s) successfully unmarshalled. Account: %s, Envelope: %+v, CallMessage: %+v", c.id, receivedMsg.Account, receivedMsg.Envelope, receivedMsg.CallMessage)
 
 	var actualSender, messageText, conversationContextID, actualMessageForLLM string
@@ -614,6 +620,15 @@ func (c *Connector) processReceivedMessagePayload(ctx context.Context, payload [
 
 	log.Printf("Signal connector (ID: %s): Sending to LLM for context %s (actual sender %s, history len %d): %+v", c.id, conversationContextID, actualSender, len(history), history)
 
+	// Send typing indicator before starting LLM completion
+	if receivedMsg.Envelope != nil && strings.HasPrefix(receivedMsg.Envelope.Source, "+") {
+		if err := c.sendTypingIndicator(ctx, receivedMsg.Envelope.Source); err != nil {
+			log.Printf("Signal connector (ID: %s): Failed to send typing indicator for %s: %v", c.id, receivedMsg.Envelope.Source, err)
+		}
+	} else if receivedMsg.Envelope != nil {
+		log.Printf("Signal connector (ID: %s): Skipping typing indicator for non-phone-number recipient: %s", c.id, receivedMsg.Envelope.Source)
+	}
+
 	completeCtx, cancelComplete := context.WithTimeout(ctx, time.Duration(c.llmTimeoutSeconds)*time.Second)
 	defer cancelComplete()
 
@@ -656,6 +671,15 @@ func (c *Connector) processReceivedMessagePayload(ctx context.Context, payload [
 			log.Printf("Signal connector (ID: %s): Using account username '%s' as sender for group reply to %s", c.id, apiSender, conversationContextID)
 		}
 
+		// Send ready indicator before sending the reply
+		if receivedMsg.Envelope != nil && strings.HasPrefix(receivedMsg.Envelope.Source, "+") {
+			if err := c.sendReadyIndicator(ctx, receivedMsg.Envelope.Source); err != nil {
+				log.Printf("Signal connector (ID: %s): Failed to send ready indicator for %s: %v", c.id, receivedMsg.Envelope.Source, err)
+			}
+		} else if receivedMsg.Envelope != nil {
+			log.Printf("Signal connector (ID: %s): Skipping ready indicator for non-phone-number recipient: %s", c.id, receivedMsg.Envelope.Source)
+		}
+
 		if err := c.sendSignalMessage(ctx, apiSender, conversationContextID, replyText); err != nil {
 			log.Printf("Error sending Signal reply to %s (using sender %s): %v", conversationContextID, apiSender, err)
 			return err
@@ -670,10 +694,15 @@ func (c *Connector) processReceivedMessagePayload(ctx context.Context, payload [
 	}
 	// Send read receipt after processing the message
 	if receivedMsg.Envelope != nil && actualSender != "" && receivedMsg.Envelope.Timestamp != 0 {
-		if err := c.sendReadReceipt(ctx, actualSender, receivedMsg.Envelope.Timestamp); err != nil {
-			log.Printf("Signal connector (ID: %s): Failed to send read receipt to API for %s at %d: %v", c.id, actualSender, receivedMsg.Envelope.Timestamp, err)
+		// Only send read receipt if actualSender looks like a phone number (starts with '+')
+		if strings.HasPrefix(actualSender, "+") {
+			if err := c.sendReadReceipt(ctx, actualSender, receivedMsg.Envelope.Timestamp); err != nil {
+				log.Printf("Signal connector (ID: %s): Failed to send read receipt to API for %s at %d: %v", c.id, actualSender, receivedMsg.Envelope.Timestamp, err)
+			} else {
+				log.Printf("Signal connector (ID: %s): Sent read receipt to API for %s at %d", c.id, actualSender, receivedMsg.Envelope.Timestamp)
+			}
 		} else {
-			log.Printf("Signal connector (ID: %s): Sent read receipt to API for %s at %d", c.id, actualSender, receivedMsg.Envelope.Timestamp)
+			log.Printf("Signal connector (ID: %s): Skipping read receipt for non-phone-number recipient: %s", c.id, actualSender)
 		}
 	}
 	return nil
@@ -815,6 +844,64 @@ func (c *Connector) sendReadReceipt(ctx context.Context, recipient string, times
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
 		bodyBytes, _ := io.ReadAll(resp.Body)
 		return fmt.Errorf("failed to send read receipt, status %d: %s", resp.StatusCode, string(bodyBytes))
+	}
+	return nil
+}
+
+// sendTypingIndicator sends a PUT request to the typing indicator API to indicate typing.
+func (c *Connector) sendTypingIndicator(ctx context.Context, phoneNumber string) error {
+	escapedNumber := url.PathEscape(phoneNumber)
+	apiURL := fmt.Sprintf("%s/v1/typing-indicator/%s", c.url, escapedNumber)
+	body := map[string]interface{}{
+		"recipient": phoneNumber,
+	}
+	jsonData, err := json.Marshal(body)
+	if err != nil {
+		return fmt.Errorf("failed to marshal typing indicator: %w", err)
+	}
+	req, err := http.NewRequestWithContext(ctx, "PUT", apiURL, bytes.NewBuffer(jsonData))
+	if err != nil {
+		return fmt.Errorf("failed to create PUT request for typing indicator: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("accept", "application/json")
+	resp, err := c.client.Do(req)
+	if err != nil {
+		return fmt.Errorf("failed to PUT typing indicator: %w", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated && resp.StatusCode != http.StatusNoContent {
+		bodyBytes, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("failed to send typing indicator, status %d: %s", resp.StatusCode, string(bodyBytes))
+	}
+	return nil
+}
+
+// sendReadyIndicator sends a DELETE request to the typing indicator API to indicate ready.
+func (c *Connector) sendReadyIndicator(ctx context.Context, phoneNumber string) error {
+	escapedNumber := url.PathEscape(phoneNumber)
+	apiURL := fmt.Sprintf("%s/v1/typing-indicator/%s", c.url, escapedNumber)
+	body := map[string]interface{}{
+		"recipient": phoneNumber,
+	}
+	jsonData, err := json.Marshal(body)
+	if err != nil {
+		return fmt.Errorf("failed to marshal ready indicator: %w", err)
+	}
+	req, err := http.NewRequestWithContext(ctx, "DELETE", apiURL, bytes.NewBuffer(jsonData))
+	if err != nil {
+		return fmt.Errorf("failed to create DELETE request for ready indicator: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("accept", "application/json")
+	resp, err := c.client.Do(req)
+	if err != nil {
+		return fmt.Errorf("failed to DELETE ready indicator: %w", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusNoContent {
+		bodyBytes, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("failed to send ready indicator, status %d: %s", resp.StatusCode, string(bodyBytes))
 	}
 	return nil
 }

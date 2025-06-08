@@ -186,7 +186,7 @@ type ChatCompletion struct {
 
 	Choices []ChatCompletionChoice `json:"choices"`
 
-	Usage *Usage `json:"usage,omitempty"`
+	Usage *Usage `json:"usage"`
 }
 
 // https://platform.openai.com/docs/api-reference/chat/object
@@ -203,8 +203,8 @@ type ChatCompletionChoice struct {
 type ChatCompletionMessage struct {
 	Role MessageRole `json:"role,omitempty"`
 
-	Content string `json:"content"`
-	Refusal string `json:"refusal,omitempty"`
+	Content *string `json:"content,omitempty"`
+	Refusal *string `json:"refusal,omitempty"`
 
 	Contents []MessageContent `json:"-"`
 
@@ -215,9 +215,10 @@ type ChatCompletionMessage struct {
 type MessageContentType string
 
 var (
-	MessageContentTypeText     MessageContentType = "text"
-	MessageContentTypeFileURL  MessageContentType = "file_url" // non-standard
-	MessageContentTypeImageURL MessageContentType = "image_url"
+	MessageContentTypeText  MessageContentType = "text"
+	MessageContentTypeFile  MessageContentType = "file"
+	MessageContentTypeImage MessageContentType = "image_url"
+	MessageContentTypeAudio MessageContentType = "input_audio"
 )
 
 type MessageContent struct {
@@ -225,25 +226,36 @@ type MessageContent struct {
 
 	Text string `json:"text,omitempty"`
 
-	FileURL  *MessageContentURL `json:"file_url,omitempty"` // non-standard
-	ImageURL *MessageContentURL `json:"image_url,omitempty"`
+	File  *MessageContentFile  `json:"file,omitempty"`
+	Image *MessageContentImage `json:"image_url,omitempty"`
+	Audio *MessageContentAudio `json:"input_audio,omitempty"`
 }
 
-type MessageContentURL struct {
+type MessageContentImage struct {
 	URL string `json:"url"`
 }
 
+type MessageContentFile struct {
+	Name string `json:"filename,omitempty"`
+	Data string `json:"file_data,omitempty"`
+}
+
+type MessageContentAudio struct {
+	Data   string `json:"data,omitempty"`
+	Format string `json:"format,omitempty"`
+}
+
 func (m *ChatCompletionMessage) MarshalJSON() ([]byte, error) {
-	if m.Content != "" && m.Contents != nil {
+	if m.Content != nil && m.Contents != nil {
 		return nil, errors.New("cannot have both content and contents")
 	}
 
 	if len(m.Contents) > 0 {
 		type2 := struct {
-			Role MessageRole `json:"role"`
+			Role MessageRole `json:"role,omitempty"`
 
-			Content string `json:"-"`
-			Refusal string `json:"refusal,omitempty"`
+			Content *string `json:"-"`
+			Refusal *string `json:"refusal,omitempty"`
 
 			Contents []MessageContent `json:"content,omitempty"`
 
@@ -254,10 +266,10 @@ func (m *ChatCompletionMessage) MarshalJSON() ([]byte, error) {
 		return json.Marshal(type2)
 	} else {
 		type1 := struct {
-			Role MessageRole `json:"role"`
+			Role MessageRole `json:"role,omitempty"`
 
-			Content string `json:"content"`
-			Refusal string `json:"refusal,omitempty"`
+			Content *string `json:"content,omitempty"`
+			Refusal *string `json:"refusal,omitempty"`
 
 			Contents []MessageContent `json:"-"`
 
@@ -271,10 +283,10 @@ func (m *ChatCompletionMessage) MarshalJSON() ([]byte, error) {
 
 func (m *ChatCompletionMessage) UnmarshalJSON(data []byte) error {
 	type1 := struct {
-		Role MessageRole `json:"role"`
+		Role MessageRole `json:"role,omitempty"`
 
-		Content string `json:"content"`
-		Refusal string `json:"refusal,omitempty"`
+		Content *string `json:"content"`
+		Refusal *string `json:"refusal,omitempty"`
 
 		Contents []MessageContent
 
@@ -288,10 +300,10 @@ func (m *ChatCompletionMessage) UnmarshalJSON(data []byte) error {
 	}
 
 	type2 := struct {
-		Role MessageRole `json:"role"`
+		Role MessageRole `json:"role,omitempty"`
 
-		Content string
-		Refusal string `json:"refusal,omitempty"`
+		Content *string
+		Refusal *string `json:"refusal,omitempty"`
 
 		Contents []MessageContent `json:"content"`
 
@@ -322,9 +334,9 @@ type Tool struct {
 
 // https://platform.openai.com/docs/api-reference/chat/object
 type ToolCall struct {
-	ID string `json:"id"`
+	ID string `json:"id,omitempty"`
 
-	Type ToolType `json:"type"`
+	Type ToolType `json:"type,omitempty"`
 
 	Index int `json:"index"`
 
@@ -342,7 +354,7 @@ type Function struct {
 
 // https://platform.openai.com/docs/api-reference/chat/object
 type FunctionCall struct {
-	Name      string `json:"name"`
+	Name      string `json:"name,omitempty"`
 	Arguments string `json:"arguments"`
 }
 

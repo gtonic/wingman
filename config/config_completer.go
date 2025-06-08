@@ -9,7 +9,8 @@ import (
 	"github.com/adrianliechti/wingman/pkg/provider/azure"
 	"github.com/adrianliechti/wingman/pkg/provider/bedrock"
 	"github.com/adrianliechti/wingman/pkg/provider/cohere"
-	"github.com/adrianliechti/wingman/pkg/provider/google"
+	"github.com/adrianliechti/wingman/pkg/provider/custom"
+	"github.com/adrianliechti/wingman/pkg/provider/gemini"
 	"github.com/adrianliechti/wingman/pkg/provider/groq"
 	"github.com/adrianliechti/wingman/pkg/provider/huggingface"
 	"github.com/adrianliechti/wingman/pkg/provider/llama"
@@ -64,11 +65,11 @@ func createCompleter(cfg providerConfig, model modelContext) (provider.Completer
 	case "cohere":
 		return cohereCompleter(cfg, model)
 
+	case "gemini", "google":
+		return geminiCompleter(cfg, model)
+
 	case "github":
 		return azureCompleter(cfg, model)
-
-	case "google":
-		return googleCompleter(cfg, model)
 
 	case "groq":
 		return groqCompleter(cfg, model)
@@ -93,6 +94,9 @@ func createCompleter(cfg providerConfig, model modelContext) (provider.Completer
 
 	case "xai":
 		return xaiCompleter(cfg, model)
+
+	case "custom":
+		return customCompleter(cfg, model)
 
 	default:
 		return nil, errors.New("invalid completer type: " + cfg.Type)
@@ -135,14 +139,14 @@ func cohereCompleter(cfg providerConfig, model modelContext) (provider.Completer
 	return cohere.NewCompleter(model.ID, options...)
 }
 
-func googleCompleter(cfg providerConfig, model modelContext) (provider.Completer, error) {
-	var options []google.Option
+func geminiCompleter(cfg providerConfig, model modelContext) (provider.Completer, error) {
+	var options []gemini.Option
 
 	if cfg.Token != "" {
-		options = append(options, google.WithToken(cfg.Token))
+		options = append(options, gemini.WithToken(cfg.Token))
 	}
 
-	return google.NewCompleter(model.ID, options...)
+	return gemini.NewCompleter(model.ID, options...)
 }
 
 func groqCompleter(cfg providerConfig, model modelContext) (provider.Completer, error) {
@@ -211,4 +215,10 @@ func xaiCompleter(cfg providerConfig, model modelContext) (provider.Completer, e
 	}
 
 	return xai.NewCompleter(cfg.URL, model.ID, options...)
+}
+
+func customCompleter(cfg providerConfig, model modelContext) (provider.Completer, error) {
+	var options []custom.Option
+
+	return custom.NewCompleter(cfg.URL, options...)
 }

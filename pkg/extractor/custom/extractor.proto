@@ -1,0 +1,29 @@
+syntax = "proto3";
+
+option go_package = "github.com/adrianliechti/wingman/pkg/extractor/custom;custom";
+
+package extractor;
+
+service Extractor {
+  rpc Extract (ExtractRequest) returns (File) {}
+}
+
+enum Format {
+  FORMAT_TEXT = 0;
+  FORMAT_IMAGE = 1;
+  FORMAT_PDF = 2;
+}
+
+message ExtractRequest {
+  optional File file = 1;
+  optional string url = 2;
+
+  optional Format format = 3;
+}
+
+message File {
+  string name = 1;
+
+  bytes content = 2;
+  string content_type = 3;
+}

@@ -7,7 +7,8 @@ import (
 	"github.com/adrianliechti/wingman/pkg/provider"
 	"github.com/adrianliechti/wingman/pkg/provider/azure"
 	"github.com/adrianliechti/wingman/pkg/provider/cohere"
-	"github.com/adrianliechti/wingman/pkg/provider/google"
+	"github.com/adrianliechti/wingman/pkg/provider/custom"
+	"github.com/adrianliechti/wingman/pkg/provider/gemini"
 	"github.com/adrianliechti/wingman/pkg/provider/huggingface"
 	"github.com/adrianliechti/wingman/pkg/provider/jina"
 	"github.com/adrianliechti/wingman/pkg/provider/llama"
@@ -47,11 +48,11 @@ func createEmbedder(cfg providerConfig, model modelContext) (provider.Embedder, 
 	case "cohere":
 		return cohereEmbedder(cfg, model)
 
+	case "gemini", "google":
+		return geminiEmbedder(cfg, model)
+
 	case "github":
 		return azureEmbedder(cfg, model)
-
-	case "google":
-		return googleEmbedder(cfg, model)
 
 	case "huggingface":
 		return huggingfaceEmbedder(cfg, model)
@@ -67,6 +68,9 @@ func createEmbedder(cfg providerConfig, model modelContext) (provider.Embedder, 
 
 	case "openai":
 		return openaiEmbedder(cfg, model)
+
+	case "custom":
+		return customEmbedder(cfg, model)
 
 	default:
 		return nil, errors.New("invalid embedder type: " + cfg.Type)
@@ -93,14 +97,14 @@ func cohereEmbedder(cfg providerConfig, model modelContext) (provider.Embedder, 
 	return cohere.NewEmbedder(model.ID, options...)
 }
 
-func googleEmbedder(cfg providerConfig, model modelContext) (provider.Embedder, error) {
-	var options []google.Option
+func geminiEmbedder(cfg providerConfig, model modelContext) (provider.Embedder, error) {
+	var options []gemini.Option
 
 	if cfg.Token != "" {
-		options = append(options, google.WithToken(cfg.Token))
+		options = append(options, gemini.WithToken(cfg.Token))
 	}
 
-	return google.NewEmbedder(model.ID, options...)
+	return gemini.NewEmbedder(model.ID, options...)
 }
 
 func huggingfaceEmbedder(cfg providerConfig, model modelContext) (provider.Embedder, error) {
@@ -143,4 +147,10 @@ func openaiEmbedder(cfg providerConfig, model modelContext) (provider.Embedder, 
 	}
 
 	return openai.NewEmbedder(cfg.URL, model.ID, options...)
+}
+
+func customEmbedder(cfg providerConfig, model modelContext) (provider.Embedder, error) {
+	var options []custom.Option
+
+	return custom.NewEmbedder(cfg.URL, options...)
 }

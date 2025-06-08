@@ -154,6 +154,7 @@ type configFile struct {
 
 	Extractors  yaml.Node `yaml:"extractors"`
 	Segmenters  yaml.Node `yaml:"segmenters"`
+	Summarizers yaml.Node `yaml:"summarizers"`
 	Translators yaml.Node `yaml:"translators"`
 
 	Tools  yaml.Node `yaml:"tools"`

@@ -87,6 +87,7 @@ func DetectModelType(id string) ModelType {
 		"codestral",
 		"command",
 		"deepseek",
+		"devstral",
 		"dolphin",
 		"falcon",
 		"gemini",

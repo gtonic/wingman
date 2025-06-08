@@ -238,7 +238,11 @@ func mcpTool(cfg toolConfig, context toolContext) (tool.Provider, error) {
 		return mcp.NewStdio(cfg.Command, env, cfg.Args)
 	}
 
-	return mcp.NewSSE(cfg.URL, cfg.Vars)
+	if strings.Contains(strings.ToLower(cfg.URL), "/sse") {
+		return mcp.NewSSE(cfg.URL, cfg.Vars)
+	}
+
+	return mcp.NewHTTP(cfg.URL, cfg.Vars)
 }
 
 func customTool(cfg toolConfig, context toolContext) (tool.Provider, error) {

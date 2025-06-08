@@ -52,6 +52,12 @@ func (c *Client) Extract(ctx context.Context, input extractor.Input, options *ex
 		return nil, extractor.ErrUnsupported
 	}
 
+	if options.Format != nil {
+		if *options.Format != extractor.FormatText {
+			return nil, extractor.ErrUnsupported
+		}
+	}
+
 	content := bytes.NewReader(input.File.Content)
 
 	u, _ := url.Parse(strings.TrimRight(c.url, "/") + "/documentintelligence/documentModels/prebuilt-layout:analyze")

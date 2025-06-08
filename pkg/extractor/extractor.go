@@ -15,7 +15,16 @@ var (
 	ErrUnsupported = errors.New("unsupported type")
 )
 
+type Format string
+
+const (
+	FormatText  Format = "text"
+	FormatImage Format = "image"
+	FormatPDF   Format = "pdf"
+)
+
 type ExtractOptions struct {
+	Format *Format
 }
 
 type Input struct {

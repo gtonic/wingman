@@ -3,7 +3,7 @@
 version: "3"
 
 vars:
-  REPOSITORY: ghcr.io/adrianliechti/wingman-platform
+  REPOSITORY: gtonic/wingman-platform
   #REPOSITORY: ghcr.io/adrianliechti/wingman-platform:nightly
 
 includes:
@@ -31,7 +31,7 @@ includes:
 tasks:
   publish:
     cmds:
-      - docker buildx build . --push --platform linux/amd64,linux/arm64 --tag {{.REPOSITORY}}
+      - docker buildx build . --push --platform linux/arm64 --tag {{.REPOSITORY}}
 
   server:
     dotenv: ['.env' ]
