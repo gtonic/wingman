@@ -14,7 +14,7 @@ require (
 	github.com/google/generative-ai-go v0.20.1
 	github.com/google/uuid v1.6.0
 	github.com/mark3labs/mcp-go v0.31.0
-	github.com/openai/openai-go v1.3.0
+	github.com/openai/openai-go v1.4.0
 	github.com/replicate/replicate-go v0.26.0
 	github.com/stretchr/testify v1.10.0
 	github.com/testcontainers/testcontainers-go v0.37.0
