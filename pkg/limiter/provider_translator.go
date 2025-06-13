@@ -3,6 +3,7 @@ package limiter
 import (
 	"context"
 
+	"github.com/adrianliechti/wingman/pkg/provider"
 	"github.com/adrianliechti/wingman/pkg/translator"
 
 	"golang.org/x/time/rate"
@@ -28,10 +29,10 @@ func NewTranslator(l *rate.Limiter, p translator.Provider) Translator {
 func (p *limitedTranslator) limiterSetup() {
 }
 
-func (p *limitedTranslator) Translate(ctx context.Context, content string, options *translator.TranslateOptions) (*translator.Translation, error) {
+func (p *limitedTranslator) Translate(ctx context.Context, input translator.Input, options *translator.TranslateOptions) (*provider.File, error) {
 	if p.limiter != nil {
 		p.limiter.Wait(ctx)
 	}
 
-	return p.provider.Translate(ctx, content, options)
+	return p.provider.Translate(ctx, input, options)
 }

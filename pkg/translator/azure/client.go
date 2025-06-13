@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/adrianliechti/wingman/pkg/provider"
 	"github.com/adrianliechti/wingman/pkg/translator"
 )
 
@@ -34,7 +35,7 @@ func New(url string, options ...Option) (*Client, error) {
 	return c, nil
 }
 
-func (c *Client) Translate(ctx context.Context, content string, options *translator.TranslateOptions) (*translator.Translation, error) {
+func (c *Client) Translate(ctx context.Context, input translator.Input, options *translator.TranslateOptions) (*provider.File, error) {
 	if options == nil {
 		options = new(translator.TranslateOptions)
 	}
@@ -43,13 +44,17 @@ func (c *Client) Translate(ctx context.Context, content string, options *transla
 		options.Language = "en"
 	}
 
+	if input.File != nil {
+		return nil, translator.ErrUnsupported
+	}
+
 	type bodyType struct {
 		Text string `json:"Text"`
 	}
 
 	body := []bodyType{
 		{
-			Text: strings.TrimSpace(content),
+			Text: strings.TrimSpace(input.Text),
 		},
 	}
 
@@ -98,7 +103,8 @@ func (c *Client) Translate(ctx context.Context, content string, options *transla
 		return nil, errors.New("unable to translate content")
 	}
 
-	return &translator.Translation{
-		Text: result[0].Translations[0].Text,
+	return &provider.File{
+		Content:     []byte(result[0].Translations[0].Text),
+		ContentType: "text/plain",
 	}, nil
 }

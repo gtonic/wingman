@@ -95,7 +95,7 @@ func (h *Handler) readContent(r *http.Request) (*provider.File, error) {
 	input := extractor.Input{}
 
 	if url := valueURL(r); url != "" {
-		input.URL = &url
+		input.URL = url
 	} else {
 		f, err := h.readFile(r)
 

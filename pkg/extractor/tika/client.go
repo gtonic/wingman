@@ -43,7 +43,7 @@ func New(url string, options ...Option) (*Client, error) {
 	return c, nil
 }
 
-func (c *Client) Extract(ctx context.Context, input extractor.Input, options *extractor.ExtractOptions) (*extractor.Document, error) {
+func (c *Client) Extract(ctx context.Context, input extractor.Input, options *extractor.ExtractOptions) (*provider.File, error) {
 	if options == nil {
 		options = new(extractor.ExtractOptions)
 	}
@@ -87,7 +87,7 @@ func (c *Client) Extract(ctx context.Context, input extractor.Input, options *ex
 
 	text := text.Normalize(response.Content)
 
-	return &extractor.Document{
+	return &provider.File{
 		Content:     []byte(text),
 		ContentType: "text/plain",
 	}, nil

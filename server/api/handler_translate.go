@@ -1,7 +1,6 @@
 package api
 
 import (
-	"io"
 	"net/http"
 
 	"github.com/adrianliechti/wingman/pkg/translator"
@@ -29,15 +28,23 @@ func (h *Handler) handleTranslate(w http.ResponseWriter, r *http.Request) {
 		Language: language,
 	}
 
-	translation, err := p.Translate(r.Context(), text, options)
+	input := translator.Input{
+		Text: text,
+	}
+
+	result, err := p.Translate(r.Context(), input, options)
 
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err)
 		return
 	}
 
-	w.Header().Set("Content-Type", "text/plain")
+	contentType := result.ContentType
 
-	w.WriteHeader(http.StatusOK)
-	io.WriteString(w, translation.Text)
+	if contentType != "" {
+		contentType = "application/octet-stream"
+	}
+
+	w.Header().Set("Content-Type", contentType)
+	w.Write(result.Content)
 }

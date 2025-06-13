@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/adrianliechti/wingman/pkg/extractor"
+	"github.com/adrianliechti/wingman/pkg/provider"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -47,7 +48,7 @@ func New(url string, options ...Option) (*Client, error) {
 	return c, nil
 }
 
-func (c *Client) Extract(ctx context.Context, input extractor.Input, options *extractor.ExtractOptions) (*extractor.Document, error) {
+func (c *Client) Extract(ctx context.Context, input extractor.Input, options *extractor.ExtractOptions) (*provider.File, error) {
 	if options == nil {
 		options = new(extractor.ExtractOptions)
 	}
@@ -74,8 +75,8 @@ func (c *Client) Extract(ctx context.Context, input extractor.Input, options *ex
 		Format: format.Enum(),
 	}
 
-	if input.URL != nil {
-		req.Url = input.URL
+	if input.URL != "" {
+		req.Url = &input.URL
 	}
 
 	if input.File != nil {
@@ -93,7 +94,7 @@ func (c *Client) Extract(ctx context.Context, input extractor.Input, options *ex
 		return nil, err
 	}
 
-	return &extractor.Document{
+	return &provider.File{
 		Content:     resp.Content,
 		ContentType: resp.ContentType,
 	}, nil

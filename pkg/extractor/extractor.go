@@ -8,7 +8,7 @@ import (
 )
 
 type Provider interface {
-	Extract(ctx context.Context, input Input, options *ExtractOptions) (*Document, error)
+	Extract(ctx context.Context, input Input, options *ExtractOptions) (*provider.File, error)
 }
 
 var (
@@ -28,12 +28,7 @@ type ExtractOptions struct {
 }
 
 type Input struct {
-	URL *string
+	URL string
 
 	File *provider.File
-}
-
-type Document struct {
-	Content     []byte
-	ContentType string
 }

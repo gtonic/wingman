@@ -26,7 +26,7 @@ const (
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type TranslatorClient interface {
-	Translate(ctx context.Context, in *TranslateRequest, opts ...grpc.CallOption) (*Translation, error)
+	Translate(ctx context.Context, in *TranslateRequest, opts ...grpc.CallOption) (*File, error)
 }
 
 type translatorClient struct {
@@ -37,9 +37,9 @@ func NewTranslatorClient(cc grpc.ClientConnInterface) TranslatorClient {
 	return &translatorClient{cc}
 }
 
-func (c *translatorClient) Translate(ctx context.Context, in *TranslateRequest, opts ...grpc.CallOption) (*Translation, error) {
+func (c *translatorClient) Translate(ctx context.Context, in *TranslateRequest, opts ...grpc.CallOption) (*File, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(Translation)
+	out := new(File)
 	err := c.cc.Invoke(ctx, Translator_Translate_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
@@ -51,7 +51,7 @@ func (c *translatorClient) Translate(ctx context.Context, in *TranslateRequest, 
 // All implementations must embed UnimplementedTranslatorServer
 // for forward compatibility.
 type TranslatorServer interface {
-	Translate(context.Context, *TranslateRequest) (*Translation, error)
+	Translate(context.Context, *TranslateRequest) (*File, error)
 	mustEmbedUnimplementedTranslatorServer()
 }
 
@@ -62,7 +62,7 @@ type TranslatorServer interface {
 // pointer dereference when methods are called.
 type UnimplementedTranslatorServer struct{}
 
-func (UnimplementedTranslatorServer) Translate(context.Context, *TranslateRequest) (*Translation, error) {
+func (UnimplementedTranslatorServer) Translate(context.Context, *TranslateRequest) (*File, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Translate not implemented")
 }
 func (UnimplementedTranslatorServer) mustEmbedUnimplementedTranslatorServer() {}

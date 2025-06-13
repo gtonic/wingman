@@ -6,7 +6,6 @@ import (
 
 	"github.com/adrianliechti/wingman/pkg/extractor"
 	"github.com/adrianliechti/wingman/pkg/extractor/jina"
-	"github.com/adrianliechti/wingman/pkg/to"
 
 	"github.com/stretchr/testify/require"
 	"github.com/testcontainers/testcontainers-go"
@@ -35,7 +34,7 @@ func TestExtract(t *testing.T) {
 	require.NoError(t, err)
 
 	input := extractor.Input{
-		URL: to.Ptr("https://example.org"),
+		URL: "https://example.org",
 	}
 
 	result, err := c.Extract(ctx, input, nil)

@@ -5,14 +5,19 @@ option go_package = "github.com/adrianliechti/wingman/pkg/translator/custom;cust
 package translator;
 
 service Translator {
-  rpc Translate (TranslateRequest) returns (Translation) {}
+  rpc Translate (TranslateRequest) returns (File) {}
 }
 
 message TranslateRequest {
   string text = 1;
   string language = 2;
+
+  optional File file = 3;
 }
 
-message Translation {
-  string text = 1;
+message File {
+  string name = 1;
+
+  bytes content = 2;
+  string content_type = 3;
 }

@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/adrianliechti/wingman/pkg/extractor"
+	"github.com/adrianliechti/wingman/pkg/provider"
 )
 
 var _ extractor.Provider = &Extractor{}
@@ -18,7 +19,7 @@ func New(provider ...extractor.Provider) *Extractor {
 	}
 }
 
-func (e *Extractor) Extract(ctx context.Context, input extractor.Input, options *extractor.ExtractOptions) (*extractor.Document, error) {
+func (e *Extractor) Extract(ctx context.Context, input extractor.Input, options *extractor.ExtractOptions) (*provider.File, error) {
 	if options == nil {
 		options = new(extractor.ExtractOptions)
 	}

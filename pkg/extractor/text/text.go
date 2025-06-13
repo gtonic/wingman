@@ -20,7 +20,7 @@ func New() (*Extractor, error) {
 	return &Extractor{}, nil
 }
 
-func (e *Extractor) Extract(ctx context.Context, input extractor.Input, options *extractor.ExtractOptions) (*extractor.Document, error) {
+func (e *Extractor) Extract(ctx context.Context, input extractor.Input, options *extractor.ExtractOptions) (*provider.File, error) {
 	if options == nil {
 		options = new(extractor.ExtractOptions)
 	}
@@ -47,7 +47,7 @@ func (e *Extractor) Extract(ctx context.Context, input extractor.Input, options 
 		mime = "text/plain"
 	}
 
-	return &extractor.Document{
+	return &provider.File{
 		Content:     file.Content,
 		ContentType: mime,
 	}, nil

@@ -29,7 +29,7 @@ func (h *Handler) handleExtract(w http.ResponseWriter, r *http.Request) {
 	input := extractor.Input{}
 
 	if url := valueURL(r); url != "" {
-		input.URL = &url
+		input.URL = url
 	}
 
 	if file, header, err := r.FormFile("file"); err == nil {
@@ -48,7 +48,7 @@ func (h *Handler) handleExtract(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	if input.URL == nil && input.File == nil {
+	if input.URL == "" && input.File == nil {
 		writeError(w, http.StatusBadRequest, errors.New("invalid input"))
 		return
 	}
@@ -60,14 +60,14 @@ func (h *Handler) handleExtract(w http.ResponseWriter, r *http.Request) {
 		options.Format = &format
 	}
 
-	document, err := p.Extract(r.Context(), input, options)
+	result, err := p.Extract(r.Context(), input, options)
 
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err)
 		return
 	}
 
-	contentType := document.ContentType
+	contentType := result.ContentType
 
 	if contentType != "" {
 		contentType = "application/octet-stream"
@@ -81,7 +81,7 @@ func (h *Handler) handleExtract(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		text := string(document.Content)
+		text := string(result.Content)
 
 		messages := []provider.Message{
 			provider.UserMessage(text),
@@ -109,5 +109,5 @@ func (h *Handler) handleExtract(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", contentType)
-	w.Write(document.Content)
+	w.Write(result.Content)
 }

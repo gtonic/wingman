@@ -80,7 +80,11 @@ func (c *Client) Execute(ctx context.Context, name string, parameters map[string
 		Language: lang,
 	}
 
-	data, err := c.provider.Translate(ctx, text, options)
+	input := translator.Input{
+		Text: text,
+	}
+
+	result, err := c.provider.Translate(ctx, input, options)
 
 	if err != nil {
 		return nil, err
@@ -88,6 +92,6 @@ func (c *Client) Execute(ctx context.Context, name string, parameters map[string
 
 	return &Result{
 		Language: lang,
-		Text:     data.Text,
+		Text:     string(result.Content),
 	}, nil
 }

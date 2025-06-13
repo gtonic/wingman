@@ -9,6 +9,7 @@ import (
 	"net/http"
 
 	"github.com/adrianliechti/wingman/pkg/extractor"
+	"github.com/adrianliechti/wingman/pkg/provider"
 )
 
 var _ extractor.Provider = &Client{}
@@ -38,17 +39,17 @@ func New(url string, options ...Option) (*Client, error) {
 	return c, nil
 }
 
-func (c *Client) Extract(ctx context.Context, input extractor.Input, options *extractor.ExtractOptions) (*extractor.Document, error) {
+func (c *Client) Extract(ctx context.Context, input extractor.Input, options *extractor.ExtractOptions) (*provider.File, error) {
 	if options == nil {
 		options = new(extractor.ExtractOptions)
 	}
 
-	if input.URL == nil {
+	if input.URL == "" {
 		return nil, extractor.ErrUnsupported
 	}
 
 	body := map[string]any{
-		"url": *input.URL,
+		"url": input.URL,
 	}
 
 	format := "text"
@@ -99,7 +100,7 @@ func (c *Client) Extract(ctx context.Context, input extractor.Input, options *ex
 		return nil, err
 	}
 
-	return &extractor.Document{
+	return &provider.File{
 		Content:     data,
 		ContentType: contentType,
 	}, nil
