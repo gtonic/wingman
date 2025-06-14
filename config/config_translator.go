@@ -122,7 +122,7 @@ func createTranslator(cfg translatorConfig, context translatorContext) (translat
 }
 
 func llmTranslator(cfg translatorConfig, context translatorContext) (translator.Provider, error) {
-	return llm.New(context.Completer)
+	return llm.New(context.Completer, context.Extractor)
 }
 
 func azureTranslator(cfg translatorConfig, context translatorContext) (translator.Provider, error) {
