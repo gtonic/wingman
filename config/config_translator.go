@@ -4,6 +4,7 @@ import (
 	"errors"
 	"strings"
 
+	"github.com/adrianliechti/wingman/pkg/extractor"
 	"github.com/adrianliechti/wingman/pkg/provider"
 	"github.com/adrianliechti/wingman/pkg/translator"
 	"github.com/adrianliechti/wingman/pkg/translator/azure"
@@ -42,13 +43,15 @@ type translatorConfig struct {
 	URL   string `yaml:"url"`
 	Token string `yaml:"token"`
 
-	Model string `yaml:"model"`
+	Model     string `yaml:"model"`
+	Extractor string `yaml:"extractor"`
 
 	Limit *int `yaml:"limit"`
 }
 
 type translatorContext struct {
 	Completer provider.Completer
+	Extractor extractor.Provider
 
 	Limiter *rate.Limiter
 }
@@ -76,6 +79,12 @@ func (cfg *Config) registerTranslators(f *configFile) error {
 		if config.Model != "" {
 			if p, err := cfg.Completer(config.Model); err == nil {
 				context.Completer = p
+			}
+		}
+
+		if config.Extractor != "" {
+			if p, err := cfg.Extractor(config.Extractor); err == nil {
+				context.Extractor = p
 			}
 		}
 
