@@ -46,6 +46,8 @@ type translatorConfig struct {
 	Model     string `yaml:"model"`
 	Extractor string `yaml:"extractor"`
 
+	Vars map[string]string `yaml:"vars"`
+
 	Limit *int `yaml:"limit"`
 }
 
@@ -128,6 +130,10 @@ func azureTranslator(cfg translatorConfig, context translatorContext) (translato
 
 	if cfg.Token != "" {
 		options = append(options, azure.WithToken(cfg.Token))
+	}
+
+	if region := cfg.Vars["region"]; region != "" {
+		options = append(options, azure.WithRegion(region))
 	}
 
 	return azure.New(cfg.URL, options...)
