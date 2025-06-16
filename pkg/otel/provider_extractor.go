@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/adrianliechti/wingman/pkg/extractor"
+	"github.com/adrianliechti/wingman/pkg/provider"
 	"go.opentelemetry.io/otel"
 )
 
@@ -38,7 +39,7 @@ func NewExtractor(provider string, p extractor.Provider) Extractor {
 func (p *observableExtractor) otelSetup() {
 }
 
-func (p *observableExtractor) Extract(ctx context.Context, input extractor.Input, options *extractor.ExtractOptions) (*extractor.Document, error) {
+func (p *observableExtractor) Extract(ctx context.Context, input extractor.Input, options *extractor.ExtractOptions) (*provider.File, error) {
 	ctx, span := otel.Tracer(p.library).Start(ctx, p.name)
 	defer span.End()
 

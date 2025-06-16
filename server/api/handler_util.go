@@ -95,20 +95,15 @@ func (h *Handler) readContent(r *http.Request) (*provider.File, error) {
 	input := extractor.Input{}
 
 	if url := valueURL(r); url != "" {
-		input.URL = &url
+		input.URL = url
 	} else {
-		f, err := h.readFile(r)
+		file, err := h.readFile(r)
 
 		if err != nil {
 			return nil, err
 		}
 
-		input.File = &provider.File{
-			Name: f.Name,
-
-			Content:     f.Content,
-			ContentType: f.ContentType,
-		}
+		input.File = file
 	}
 
 	e, err := h.Extractor("")

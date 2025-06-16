@@ -59,6 +59,14 @@ func (c *Completer) complete(ctx context.Context, req anthropic.MessageNewParams
 		return nil, convertError(err)
 	}
 
+	content := toContent(message.Content)
+
+	if options.Schema != nil {
+		content = []provider.Content{
+			provider.TextContent(content[0].ToolCall.Arguments),
+		}
+	}
+
 	return &provider.Completion{
 		ID:    message.ID,
 		Model: c.model,
@@ -67,7 +75,7 @@ func (c *Completer) complete(ctx context.Context, req anthropic.MessageNewParams
 
 		Message: &provider.Message{
 			Role:    provider.MessageRoleAssistant,
-			Content: toContent(message.Content),
+			Content: content,
 		},
 
 		Usage: toUsage(message.Usage),
@@ -386,12 +394,18 @@ func (c *Completer) convertMessageRequest(input []provider.Message, options *pro
 			continue
 		}
 
+		var schema anthropic.ToolInputSchemaParam
+
+		schemaData, _ := json.Marshal(t.Parameters)
+
+		if err := json.Unmarshal(schemaData, &schema); err != nil {
+			return nil, errors.New("invalid tool parameters schema")
+		}
+
 		tool := anthropic.ToolParam{
 			Name: t.Name,
 
-			InputSchema: anthropic.ToolInputSchemaParam{
-				Properties: t.Parameters["properties"],
-			},
+			InputSchema: schema,
 		}
 
 		if t.Description != "" {
@@ -402,12 +416,18 @@ func (c *Completer) convertMessageRequest(input []provider.Message, options *pro
 	}
 
 	if options.Schema != nil {
+		var schema anthropic.ToolInputSchemaParam
+
+		schemaData, _ := json.Marshal(options.Schema.Schema)
+
+		if err := json.Unmarshal(schemaData, &schema); err != nil {
+			return nil, errors.New("invalid tool parameters schema")
+		}
+
 		tool := anthropic.ToolParam{
 			Name: options.Schema.Name,
 
-			InputSchema: anthropic.ToolInputSchemaParam{
-				Properties: options.Schema.Schema,
-			},
+			InputSchema: schema,
 		}
 
 		if options.Schema.Description != "" {

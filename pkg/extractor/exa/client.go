@@ -9,6 +9,7 @@ import (
 	"net/http"
 
 	"github.com/adrianliechti/wingman/pkg/extractor"
+	"github.com/adrianliechti/wingman/pkg/provider"
 )
 
 var _ extractor.Provider = &Client{}
@@ -35,12 +36,12 @@ func New(token string, options ...Option) (*Client, error) {
 	return c, nil
 }
 
-func (c *Client) Extract(ctx context.Context, input extractor.Input, options *extractor.ExtractOptions) (*extractor.Document, error) {
+func (c *Client) Extract(ctx context.Context, input extractor.Input, options *extractor.ExtractOptions) (*provider.File, error) {
 	if options == nil {
 		options = new(extractor.ExtractOptions)
 	}
 
-	if input.URL == nil {
+	if input.URL == "" {
 		return nil, extractor.ErrUnsupported
 	}
 
@@ -51,7 +52,7 @@ func (c *Client) Extract(ctx context.Context, input extractor.Input, options *ex
 	}
 
 	body, _ := json.Marshal(&ContentsRequest{
-		URLs: []string{*input.URL},
+		URLs: []string{input.URL},
 
 		LiveCrawl: LiveCrawlAuto,
 	})
@@ -81,7 +82,7 @@ func (c *Client) Extract(ctx context.Context, input extractor.Input, options *ex
 
 	content := data.Results[0].Text
 
-	result := &extractor.Document{
+	result := &provider.File{
 		Content:     []byte(content),
 		ContentType: "text/plain",
 	}

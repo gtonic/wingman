@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/adrianliechti/wingman/pkg/extractor"
+	"github.com/adrianliechti/wingman/pkg/provider"
 
 	"golang.org/x/time/rate"
 )
@@ -28,7 +29,7 @@ func NewExtractor(l *rate.Limiter, p extractor.Provider) Extractor {
 func (p *limitedExtractor) limiterSetup() {
 }
 
-func (p *limitedExtractor) Extract(ctx context.Context, input extractor.Input, options *extractor.ExtractOptions) (*extractor.Document, error) {
+func (p *limitedExtractor) Extract(ctx context.Context, input extractor.Input, options *extractor.ExtractOptions) (*provider.File, error) {
 	if p.limiter != nil {
 		p.limiter.Wait(ctx)
 	}

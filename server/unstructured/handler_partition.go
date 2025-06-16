@@ -22,7 +22,7 @@ func (h *Handler) handlePartition(w http.ResponseWriter, r *http.Request) {
 	input := extractor.Input{}
 
 	if url := r.FormValue("url"); url != "" {
-		input.URL = &url
+		input.URL = url
 	} else {
 		file, header, err := r.FormFile("file")
 

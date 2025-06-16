@@ -4,6 +4,7 @@ import (
 	"context"
 	"strings"
 
+	"github.com/adrianliechti/wingman/pkg/provider"
 	"github.com/adrianliechti/wingman/pkg/translator"
 
 	"go.opentelemetry.io/otel"
@@ -42,21 +43,36 @@ func NewTranslator(provider, model string, p translator.Provider) Translator {
 func (p *observableTranslator) otelSetup() {
 }
 
-func (p *observableTranslator) Translate(ctx context.Context, content string, options *translator.TranslateOptions) (*translator.Translation, error) {
+func (p *observableTranslator) Translate(ctx context.Context, input translator.Input, options *translator.TranslateOptions) (*provider.File, error) {
 	ctx, span := otel.Tracer(p.library).Start(ctx, p.name)
 	defer span.End()
 
-	result, err := p.translator.Translate(ctx, content, options)
+	result, err := p.translator.Translate(ctx, input, options)
 
 	meterRequest(ctx, p.library, p.provider, "translate", p.model)
 
 	if EnableDebug {
-		span.SetAttributes(attribute.String("input", content))
+		inputText := ""
+		outputText := ""
 
-		if result != nil {
-			if result.Text != "" {
-				span.SetAttributes(attribute.String("output", result.Text))
-			}
+		if input.Text != "" {
+			inputText = input.Text
+		}
+
+		if input.File != nil {
+			inputText = input.File.Name
+		}
+
+		if result != nil && strings.HasPrefix(result.ContentType, "text/") {
+			outputText = string(result.Content)
+		}
+
+		if inputText == "" {
+			span.SetAttributes(attribute.String("input", inputText))
+		}
+
+		if outputText != "" {
+			span.SetAttributes(attribute.String("output", outputText))
 		}
 	}
 

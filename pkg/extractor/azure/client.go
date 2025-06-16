@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/adrianliechti/wingman/pkg/extractor"
+	"github.com/adrianliechti/wingman/pkg/provider"
 )
 
 var _ extractor.Provider = &Client{}
@@ -43,7 +44,7 @@ func New(url string, options ...Option) (*Client, error) {
 	return c, nil
 }
 
-func (c *Client) Extract(ctx context.Context, input extractor.Input, options *extractor.ExtractOptions) (*extractor.Document, error) {
+func (c *Client) Extract(ctx context.Context, input extractor.Input, options *extractor.ExtractOptions) (*provider.File, error) {
 	if options == nil {
 		options = new(extractor.ExtractOptions)
 	}
@@ -122,7 +123,7 @@ func (c *Client) Extract(ctx context.Context, input extractor.Input, options *ex
 
 		text := strings.TrimSpace(operation.Result.Content)
 
-		return &extractor.Document{
+		return &provider.File{
 			Content:     []byte(text),
 			ContentType: "text/plain",
 		}, nil

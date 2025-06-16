@@ -1,8 +1,8 @@
 package api
 
 import (
-	"io"
 	"net/http"
+	"strings"
 
 	"github.com/adrianliechti/wingman/pkg/translator"
 )
@@ -18,26 +18,59 @@ func (h *Handler) handleTranslate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	text, err := h.readText(r)
-
-	if err != nil {
-		writeError(w, http.StatusBadRequest, err)
-		return
-	}
-
 	options := &translator.TranslateOptions{
 		Language: language,
 	}
 
-	translation, err := p.Translate(r.Context(), text, options)
+	acceptText := false
+	acceptHeader := strings.Split(r.Header.Get("Accept"), ", ")
+
+	if len(acceptHeader) == 0 {
+		acceptHeader = []string{"*/*"}
+	}
+
+	for _, accept := range acceptHeader {
+		if strings.HasPrefix(accept, "text/") || accept == "*/*" {
+			acceptText = true
+			break
+		}
+	}
+
+	input := translator.Input{}
+
+	if acceptText {
+		text, err := h.readText(r)
+
+		if err != nil {
+			writeError(w, http.StatusBadRequest, err)
+			return
+		}
+
+		input.Text = text
+	} else {
+		file, err := h.readFile(r)
+
+		if err != nil {
+			writeError(w, http.StatusBadRequest, err)
+			return
+		}
+
+		input.File = file
+	}
+
+	result, err := p.Translate(r.Context(), input, options)
 
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err)
 		return
 	}
 
-	w.Header().Set("Content-Type", "text/plain")
+	contentType := result.ContentType
 
-	w.WriteHeader(http.StatusOK)
-	io.WriteString(w, translation.Text)
+	if contentType == "" {
+		contentType = "application/octet-stream"
+	}
+
+	w.Header().Set("Content-Type", contentType)
+	w.Write(result.Content)
 }
