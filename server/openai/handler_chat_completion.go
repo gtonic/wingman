@@ -25,6 +25,9 @@ func (h *Handler) handleChatCompletion(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Memory integration
+	memoryManager := h.MemoryManager
+
 	completer, err := h.Completer(req.Model)
 
 	if err != nil {
@@ -37,6 +40,34 @@ func (h *Handler) handleChatCompletion(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err)
 		return
+	}
+
+	// Recall memories and inject if enabled
+	var recalled []string
+	if memoryManager != nil && memoryManager.Config() != nil && memoryManager.Config().InjectMemories {
+		// Use last user message as query
+		var lastUser string
+		for i := len(messages) - 1; i >= 0; i-- {
+			if messages[i].Role == "user" && len(messages[i].Content) > 0 {
+				if messages[i].Content[0].Text != "" {
+					lastUser = messages[i].Content[0].Text
+					break
+				}
+			}
+		}
+		memories, _ := memoryManager.RecallMemories(r.Context(), lastUser, nil)
+		for _, m := range memories {
+			recalled = append(recalled, m.Content)
+		}
+		if len(recalled) > 0 {
+			// Prepend to first user message
+			for i := range messages {
+				if messages[i].Role == "user" {
+					messages[i].Content = append([]provider.Content{provider.TextContent("Relevant past context:\n" + strings.Join(recalled, "\n---\n"))}, messages[i].Content...)
+					break
+				}
+			}
+		}
 	}
 
 	tools, err := toTools(req.Tools)

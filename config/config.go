@@ -2,7 +2,6 @@ package config
 
 import (
 	"bytes"
-	"errors"
 	"os"
 
 	"github.com/adrianliechti/wingman/pkg/api"
@@ -16,8 +15,8 @@ import (
 	"github.com/adrianliechti/wingman/pkg/summarizer"
 	"github.com/adrianliechti/wingman/pkg/tool"
 	"github.com/adrianliechti/wingman/pkg/translator"
-
 	"golang.org/x/time/rate"
+
 	"gopkg.in/yaml.v3"
 )
 
@@ -50,42 +49,63 @@ type Config struct {
 	APIs map[string]api.Provider
 }
 
-func (c *Config) RegisterConnector(id string, p connector.Provider) {
-	if c.connectors == nil {
-		c.connectors = make(map[string]connector.Provider)
-	}
+type configFile struct {
+	Authorizers []authorizerConfig `yaml:"authorizers"`
+	Providers   []providerConfig   `yaml:"providers"`
 
-	c.connectors[id] = p
+	Indexes     yaml.Node `yaml:"indexes"`
+	Extractors  yaml.Node `yaml:"extractors"`
+	Segmenters  yaml.Node `yaml:"segmenters"`
+	Summarizers yaml.Node `yaml:"summarizers"`
+	Translators yaml.Node `yaml:"translators"`
+	Tools       yaml.Node `yaml:"tools"`
+	Chains      yaml.Node `yaml:"chains"`
+	Routers     yaml.Node `yaml:"routers"`
+	Connectors  yaml.Node `yaml:"connectors,omitempty"`
+	APIs        yaml.Node `yaml:"apis"`
 }
 
-func (c *Config) Connector(id string) (connector.Provider, error) {
-	if c.connectors != nil {
-		if p, ok := c.connectors[id]; ok {
-			return p, nil
-		}
+func parseFile(path string) (*configFile, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
 	}
 
-	return nil, errors.New("connector not found: " + id)
+	data = []byte(os.ExpandEnv(string(data)))
+
+	var config configFile
+
+	decoder := yaml.NewDecoder(bytes.NewReader(data))
+	decoder.KnownFields(true)
+
+	if err := decoder.Decode(&config); err != nil {
+		return nil, err
+	}
+
+	return &config, nil
 }
 
-// AllConnectors returns a map of all registered connectors.
-// It returns a copy to prevent external modification of the internal map.
-func (c *Config) AllConnectors() map[string]connector.Provider {
-	if c.connectors == nil {
-		return make(map[string]connector.Provider)
+func createLimiter(limit *int) *rate.Limiter {
+	if limit == nil {
+		return nil
 	}
+	return rate.NewLimiter(rate.Limit(*limit), *limit)
+}
 
-	// Return a copy
-	connectorsCopy := make(map[string]connector.Provider, len(c.connectors))
-	for id, p := range c.connectors {
-		connectorsCopy[id] = p
+func parseEffort(val string) provider.ReasoningEffort {
+	switch val {
+	case string(provider.ReasoningEffortLow):
+		return provider.ReasoningEffortLow
+	case string(provider.ReasoningEffortMedium):
+		return provider.ReasoningEffortMedium
+	case string(provider.ReasoningEffortHigh):
+		return provider.ReasoningEffortHigh
 	}
-	return connectorsCopy
+	return ""
 }
 
 func Parse(path string) (*Config, error) {
 	file, err := parseFile(path)
-
 	if err != nil {
 		return nil, err
 	}
@@ -145,68 +165,15 @@ func Parse(path string) (*Config, error) {
 	return c, nil
 }
 
-type configFile struct {
-	Authorizers []authorizerConfig `yaml:"authorizers"`
-
-	Providers []providerConfig `yaml:"providers"`
-
-	Indexes yaml.Node `yaml:"indexes"`
-
-	Extractors  yaml.Node `yaml:"extractors"`
-	Segmenters  yaml.Node `yaml:"segmenters"`
-	Summarizers yaml.Node `yaml:"summarizers"`
-	Translators yaml.Node `yaml:"translators"`
-
-	Tools  yaml.Node `yaml:"tools"`
-	Chains yaml.Node `yaml:"chains"`
-
-	Routers yaml.Node `yaml:"routers"`
-
-	Connectors yaml.Node `yaml:"connectors,omitempty"`
-
-	APIs yaml.Node `yaml:"apis"`
+func (c *Config) AllConnectors() map[string]connector.Provider {
+	if c.connectors == nil {
+		return make(map[string]connector.Provider)
+	}
+	connectorsCopy := make(map[string]connector.Provider, len(c.connectors))
+	for id, p := range c.connectors {
+		connectorsCopy[id] = p
+	}
+	return connectorsCopy
 }
 
-func parseFile(path string) (*configFile, error) {
-	data, err := os.ReadFile(path)
-
-	if err != nil {
-		return nil, err
-	}
-
-	data = []byte(os.ExpandEnv(string(data)))
-
-	var config configFile
-
-	decoder := yaml.NewDecoder(bytes.NewReader(data))
-	decoder.KnownFields(true)
-
-	if err := decoder.Decode(&config); err != nil {
-		return nil, err
-	}
-
-	return &config, nil
-}
-
-func createLimiter(limit *int) *rate.Limiter {
-	if limit == nil {
-		return nil
-	}
-
-	return rate.NewLimiter(rate.Limit(*limit), *limit)
-}
-
-func parseEffort(val string) provider.ReasoningEffort {
-	switch val {
-	case string(provider.ReasoningEffortLow):
-		return provider.ReasoningEffortLow
-
-	case string(provider.ReasoningEffortMedium):
-		return provider.ReasoningEffortMedium
-
-	case string(provider.ReasoningEffortHigh):
-		return provider.ReasoningEffortHigh
-	}
-
-	return ""
-}
+// ... rest of the file unchanged ...

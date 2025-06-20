@@ -20,6 +20,7 @@ type Client struct {
 }
 
 func NewSSE(url string, headers map[string]string) (*Client, error) {
+	println("sse url: " + url)
 	return &Client{
 		transportFn: func() (transport.Interface, error) {
 			var options []transport.ClientOption
@@ -27,13 +28,13 @@ func NewSSE(url string, headers map[string]string) (*Client, error) {
 			if len(headers) > 0 {
 				options = append(options, transport.WithHeaders(headers))
 			}
-
 			return transport.NewSSE(url, options...)
 		},
 	}, nil
 }
 
 func NewHTTP(url string, headers map[string]string) (*Client, error) {
+	println("http url: " + url)
 	return &Client{
 		transportFn: func() (transport.Interface, error) {
 			var options []transport.StreamableHTTPCOption
@@ -48,6 +49,7 @@ func NewHTTP(url string, headers map[string]string) (*Client, error) {
 }
 
 func NewStdio(command string, env, args []string) (*Client, error) {
+	println("stdio cmd: " + command)
 	return &Client{
 		transportFn: func() (transport.Interface, error) {
 			return transport.NewStdio(command, env, args...), nil

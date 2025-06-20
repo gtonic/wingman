@@ -3,7 +3,6 @@ package signal
 import (
 	"bytes"
 	"context"
-	"database/sql"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -47,8 +46,6 @@ type Connector struct {
 	conversationHistories map[string][]provider.Message
 	maxHistoryMessages    int
 	historyStorageType    string
-	historySQLitePath     string
-	sqlDB                 *sql.DB
 	messagePrefixTrigger  string
 	llmTimeoutSeconds     int // Timeout for LLM completion in seconds
 }
@@ -62,7 +59,6 @@ type Config struct {
 	ReceiveMode          string
 	MaxHistoryMessages   int
 	HistoryStorageType   string
-	HistorySQLitePath    string
 	MessagePrefixTrigger string
 	LLMTimeoutSeconds    int // Timeout for LLM completion in seconds
 }
@@ -105,34 +101,10 @@ func New(id string, cfg Config) (*Connector, error) {
 	if historyStorage == "" {
 		historyStorage = "memory"
 	}
-	if historyStorage != "memory" && historyStorage != "sqlite" {
+	if historyStorage != "memory" {
 		return nil, fmt.Errorf("signal connector %s: invalid history_storage_type '%s'", id, cfg.HistoryStorageType)
 	}
 	log.Printf("Signal connector (ID: %s): Using history storage: %s", id, historyStorage)
-
-	var db *sql.DB
-	var err error
-	actualSQLitePath := cfg.HistorySQLitePath
-	if historyStorage == "sqlite" {
-		if actualSQLitePath == "" {
-			actualSQLitePath = "signal_history_" + strings.ReplaceAll(id, "/", "_") + ".db"
-			log.Printf("Signal connector (ID: %s): HistorySQLitePath not set, defaulting to %s", id, actualSQLitePath)
-		}
-		db, err = sql.Open("sqlite3", actualSQLitePath)
-		if err != nil {
-			log.Printf("Signal connector (ID: %s): Failed to open SQLite DB at %s: %v. Falling back to memory.", id, actualSQLitePath, err)
-			historyStorage = "memory"
-			db = nil
-		} else {
-			log.Printf("Signal connector (ID: %s): Opened SQLite DB at %s", id, actualSQLitePath)
-			if errPing := db.Ping(); errPing != nil {
-				log.Printf("Signal connector (ID: %s): Failed to ping SQLite DB at %s: %v. Falling back to memory.", id, actualSQLitePath, errPing)
-				db.Close()
-				db = nil
-				historyStorage = "memory"
-			}
-		}
-	}
 
 	messagePrefixTrigger := strings.TrimSpace(cfg.MessagePrefixTrigger)
 	if messagePrefixTrigger != "" {
@@ -156,8 +128,6 @@ func New(id string, cfg Config) (*Connector, error) {
 		conversationHistories: make(map[string][]provider.Message),
 		maxHistoryMessages:    maxHistory,
 		historyStorageType:    historyStorage,
-		historySQLitePath:     actualSQLitePath,
-		sqlDB:                 db,
 		messagePrefixTrigger:  messagePrefixTrigger,
 		llmTimeoutSeconds:     llmTimeout,
 	}, nil
@@ -167,48 +137,9 @@ func (c *Connector) ID() string {
 	return c.id
 }
 
-func (c *Connector) initializeSQLiteDB(ctx context.Context) error {
-	if c.sqlDB == nil {
-		return fmt.Errorf("SQLite DB connection not initialized for connector %s", c.id)
-	}
-	query := fmt.Sprintf(signalHistoryTableSchema, signalHistoryTableName)
-	log.Printf("Signal connector (ID: %s): Ensuring SQLite table '%s' exists.", c.id, signalHistoryTableName)
-	_, err := c.sqlDB.ExecContext(ctx, query)
-	if err != nil {
-		return fmt.Errorf("failed to create/ensure table '%s': %w", signalHistoryTableName, err)
-	}
-	log.Printf("Signal connector (ID: %s): SQLite table '%s' ensured.", c.id, signalHistoryTableName)
-	return nil
-}
-
-func (c *Connector) Close() error {
-	if c.sqlDB != nil {
-		log.Printf("Signal connector (ID: %s): Closing SQLite DB connection to %s.", c.id, c.historySQLitePath)
-		return c.sqlDB.Close()
-	}
-	return nil
-}
-
 func (c *Connector) Start(ctx context.Context) error {
 	log.Printf("Starting Signal connector (ID: %s), account: %s (username: '%s'), mode: %s, URL: %s, poll_interval: %v, history: %s, prefix: '%s'",
 		c.id, c.accountNumber, c.accountUsername, c.receiveMode, c.url, c.pollInterval, c.historyStorageType, c.messagePrefixTrigger)
-
-	if c.historyStorageType == "sqlite" {
-		if c.sqlDB == nil {
-			log.Printf("Signal connector (ID: %s): SQLite mode configured but DB connection is nil. Falling back to memory.", c.id)
-			c.historyStorageType = "memory"
-		} else {
-			if err := c.initializeSQLiteDB(ctx); err != nil {
-				log.Printf("Signal connector (ID: %s): Failed to initialize SQLite DB table: %v. Falling back to memory.", c.id, err)
-				c.sqlDB.Close()
-				c.sqlDB = nil
-				c.historyStorageType = "memory"
-			} else {
-				log.Printf("Signal connector (ID: %s): SQLite history mode initialized.", c.id)
-				defer c.Close()
-			}
-		}
-	}
 
 	if c.receiveMode == "websocket" {
 		return c.runWebSocketListener(ctx)
@@ -590,33 +521,14 @@ func (c *Connector) processReceivedMessagePayload(ctx context.Context, payload [
 		Content: userContents,
 	}
 
-	if c.historyStorageType == "sqlite" {
-		dbUserMessage := dbMessage{
-			ConversationID:   conversationContextID,
-			MessageTimestamp: time.Now().UnixMilli(),
-			MessageRole:      string(currentUserMessage.Role),
-			MessageContent:   currentUserMessage.Text(),
-		}
-		if errAdd := c.addMessageToSQLite(ctx, dbUserMessage); errAdd != nil {
-			log.Printf("Signal connector (ID: %s): Failed to add user message to SQLite for %s: %v. Using current message only.", c.id, conversationContextID, errAdd)
-			history = []provider.Message{currentUserMessage}
-		} else {
-			history, err = c.getHistoryFromSQLite(ctx, conversationContextID)
-			if err != nil {
-				log.Printf("Signal connector (ID: %s): Failed to get SQLite history for %s: %v. Using current message only.", c.id, conversationContextID, err)
-				history = []provider.Message{currentUserMessage}
-			}
-		}
-	} else {
-		history, _ = c.conversationHistories[conversationContextID]
-		history = append(history, currentUserMessage)
-		if len(history) > c.maxHistoryMessages {
-			startIndex := len(history) - c.maxHistoryMessages
-			history = history[startIndex:]
-			log.Printf("Signal connector (ID: %s): Memory history for %s truncated to %d messages.", c.id, conversationContextID, c.maxHistoryMessages)
-		}
-		c.conversationHistories[conversationContextID] = history
+	history, _ = c.conversationHistories[conversationContextID]
+	history = append(history, currentUserMessage)
+	if len(history) > c.maxHistoryMessages {
+		startIndex := len(history) - c.maxHistoryMessages
+		history = history[startIndex:]
+		log.Printf("Signal connector (ID: %s): Memory history for %s truncated to %d messages.", c.id, conversationContextID, c.maxHistoryMessages)
 	}
+	c.conversationHistories[conversationContextID] = history
 
 	log.Printf("Signal connector (ID: %s): Sending to LLM for context %s (actual sender %s, history len %d): %+v", c.id, conversationContextID, actualSender, len(history), history)
 
@@ -643,25 +555,13 @@ func (c *Connector) processReceivedMessagePayload(ctx context.Context, payload [
 		assistantMessage := *llmResponse.Message
 		log.Printf("Signal connector (ID: %s): Received from LLM for context %s: \"%s\"", c.id, conversationContextID, replyText)
 
-		if c.historyStorageType == "sqlite" {
-			dbAssistantMessage := dbMessage{
-				ConversationID:   conversationContextID,
-				MessageTimestamp: time.Now().UnixMilli(),
-				MessageRole:      string(assistantMessage.Role),
-				MessageContent:   assistantMessage.Text(),
-			}
-			if errAdd := c.addMessageToSQLite(ctx, dbAssistantMessage); errAdd != nil {
-				log.Printf("Signal connector (ID: %s): Failed to add assistant message to SQLite for %s: %v.", c.id, conversationContextID, errAdd)
-			}
-		} else {
-			history = append(history, assistantMessage)
-			if len(history) > c.maxHistoryMessages {
-				startIndex := len(history) - c.maxHistoryMessages
-				history = history[startIndex:]
-				log.Printf("Signal connector (ID: %s): Memory history for %s (after reply) truncated to %d messages.", c.id, conversationContextID, c.maxHistoryMessages)
-			}
-			c.conversationHistories[conversationContextID] = history
+		history = append(history, assistantMessage)
+		if len(history) > c.maxHistoryMessages {
+			startIndex := len(history) - c.maxHistoryMessages
+			history = history[startIndex:]
+			log.Printf("Signal connector (ID: %s): Memory history for %s (after reply) truncated to %d messages.", c.id, conversationContextID, c.maxHistoryMessages)
 		}
+		c.conversationHistories[conversationContextID] = history
 
 		// Determine sender for the API call
 		apiSender := c.accountNumber
@@ -704,76 +604,6 @@ func (c *Connector) processReceivedMessagePayload(ctx context.Context, payload [
 		} else {
 			log.Printf("Signal connector (ID: %s): Skipping read receipt for non-phone-number recipient: %s", c.id, actualSender)
 		}
-	}
-	return nil
-}
-
-type dbMessage struct {
-	ConversationID   string `json:"conversation_id"`
-	MessageTimestamp int64  `json:"message_timestamp"`
-	MessageRole      string `json:"message_role"`
-	MessageContent   string `json:"message_content"`
-}
-
-func (c *Connector) getHistoryFromSQLite(ctx context.Context, conversationID string) ([]provider.Message, error) {
-	if c.sqlDB == nil {
-		return nil, fmt.Errorf("SQLite DB not initialized for getHistory")
-	}
-	query := fmt.Sprintf(`
-		SELECT message_role, message_content 
-		FROM (
-			SELECT message_role, message_content, message_timestamp 
-			FROM %s 
-			WHERE conversation_id = ? 
-			ORDER BY message_timestamp DESC 
-			LIMIT ?
-		) ORDER BY message_timestamp ASC;`, signalHistoryTableName)
-
-	log.Printf("Signal connector (ID: %s): Getting history from SQLite for %s. Query: %s, Limit: %d", c.id, conversationID, query, c.maxHistoryMessages)
-
-	rows, err := c.sqlDB.QueryContext(ctx, query, conversationID, c.maxHistoryMessages)
-	if err != nil {
-		return nil, fmt.Errorf("SQLite query failed: %w", err)
-	}
-	defer rows.Close()
-
-	var history []provider.Message
-	for rows.Next() {
-		var roleStr, contentStr string
-		if err := rows.Scan(&roleStr, &contentStr); err != nil {
-			return nil, fmt.Errorf("SQLite row scan failed: %w", err)
-		}
-		var role provider.MessageRole
-		switch strings.ToLower(roleStr) {
-		case string(provider.MessageRoleUser):
-			role = provider.MessageRoleUser
-		case string(provider.MessageRoleAssistant):
-			role = provider.MessageRoleAssistant
-		case string(provider.MessageRoleSystem):
-			role = provider.MessageRoleSystem
-		default:
-			log.Printf("Signal connector (ID: %s): Unknown message role '%s' from DB, defaulting to user.", c.id, roleStr)
-			role = provider.MessageRoleUser
-		}
-		history = append(history, provider.Message{Role: role, Content: []provider.Content{provider.TextContent(contentStr)}})
-	}
-	if err = rows.Err(); err != nil {
-		return nil, fmt.Errorf("SQLite rows iteration error: %w", err)
-	}
-	log.Printf("Signal connector (ID: %s): Retrieved %d messages from SQLite history for %s.", c.id, len(history), conversationID)
-	return history, nil
-}
-
-func (c *Connector) addMessageToSQLite(ctx context.Context, msg dbMessage) error {
-	if c.sqlDB == nil {
-		return fmt.Errorf("SQLite DB not initialized for addMessage")
-	}
-	query := fmt.Sprintf(`INSERT INTO %s (conversation_id, message_timestamp, message_role, message_content) VALUES (?, ?, ?, ?);`, signalHistoryTableName)
-	log.Printf("Signal connector (ID: %s): Adding message to SQLite for %s: Role=%s", c.id, msg.ConversationID, msg.MessageRole)
-
-	_, err := c.sqlDB.ExecContext(ctx, query, msg.ConversationID, msg.MessageTimestamp, msg.MessageRole, msg.MessageContent)
-	if err != nil {
-		return fmt.Errorf("SQLite insert failed: %w", err)
 	}
 	return nil
 }

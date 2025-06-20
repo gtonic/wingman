@@ -32,6 +32,7 @@ import (
 )
 
 func (c *Config) RegisterTool(id string, p tool.Provider) {
+	println("registering tool: " + id)
 	if c.tools == nil {
 		c.tools = make(map[string]tool.Provider)
 	}

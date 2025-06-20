@@ -18,8 +18,7 @@ type connectorConfig struct {
 	PollInterval         string `yaml:"poll_interval,omitempty"`          // e.g., "5s", "1m", used for poll mode
 	ReceiveMode          string `yaml:"receive_mode,omitempty"`           // "poll" or "websocket" (defaults to "poll")
 	MaxHistoryMessages   int    `yaml:"max_history_messages,omitempty"`   // Max messages (user + assistant) to keep in history (e.g., 20 for 10 turns)
-	HistoryStorageType   string `yaml:"history_storage_type,omitempty"`   // "memory" or "sqlite" (defaults to "memory")
-	HistorySQLitePath    string `yaml:"history_sqlite_path,omitempty"`    // Path to SQLite DB file, e.g., "./signal_history.db"
+	HistoryStorageType   string `yaml:"history_storage_type,omitempty"`   // "memory" (defaults to "memory")
 	MessagePrefixTrigger string `yaml:"message_prefix_trigger,omitempty"` // Optional prefix to trigger LLM processing (e.g., "Q")
 	AccountUsername      string `yaml:"account_username,omitempty"`       // Optional: Bot's Signal Username (e.g., name.01) to use as sender for group messages
 	LLMTimeoutSeconds    int    `yaml:"llm_timeout_seconds,omitempty"`    // Timeout for LLM completion in seconds
@@ -54,7 +53,7 @@ func (c *Config) registerConnectors(f *configFile) error {
 		}
 
 		if p != nil {
-			c.RegisterConnector(id, p)
+			c.connectors[id] = p
 		}
 	}
 
@@ -97,7 +96,6 @@ func createSignalConnector(id string, cfg connectorConfig, appConfig *Config) (c
 		ReceiveMode:          cfg.ReceiveMode,
 		MaxHistoryMessages:   cfg.MaxHistoryMessages,
 		HistoryStorageType:   cfg.HistoryStorageType,
-		HistorySQLitePath:    cfg.HistorySQLitePath,
 		MessagePrefixTrigger: cfg.MessagePrefixTrigger,
 		AccountUsername:      cfg.AccountUsername,   // Pass account username
 		LLMTimeoutSeconds:    cfg.LLMTimeoutSeconds, // Pass LLM timeout

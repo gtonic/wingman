@@ -3,6 +3,8 @@ package server
 import (
 	"net/http"
 
+	"github.com/adrianliechti/wingman/pkg/memory"
+
 	"github.com/adrianliechti/wingman/config"
 	"github.com/adrianliechti/wingman/server/api"
 	"github.com/adrianliechti/wingman/server/index"
@@ -34,7 +36,9 @@ func New(cfg *config.Config) (*Server, error) {
 		return nil, err
 	}
 
-	openai, err := openai.New(cfg)
+	var memoryManager *memory.MemoryManager
+	// Memory integration not configured; pass nil for now.
+	openai, err := openai.New(cfg, memoryManager)
 
 	if err != nil {
 		return nil, err

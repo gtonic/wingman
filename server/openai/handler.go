@@ -8,20 +8,23 @@ import (
 	"strings"
 
 	"github.com/adrianliechti/wingman/config"
+	"github.com/adrianliechti/wingman/pkg/memory"
 	"github.com/go-chi/chi/v5"
 )
 
 type Handler struct {
 	*config.Config
 	http.Handler
+	MemoryManager *memory.MemoryManager
 }
 
-func New(cfg *config.Config) (*Handler, error) {
+func New(cfg *config.Config, memoryManager *memory.MemoryManager) (*Handler, error) {
 	mux := chi.NewMux()
 
 	h := &Handler{
-		Config:  cfg,
-		Handler: mux,
+		Config:        cfg,
+		Handler:       mux,
+		MemoryManager: memoryManager,
 	}
 
 	h.Attach(mux)
