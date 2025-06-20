@@ -361,9 +361,14 @@ type FunctionCall struct {
 // https://platform.openai.com/docs/api-reference/audio/createSpeech
 type SpeechRequest struct {
 	Model string `json:"model"`
-
 	Input string `json:"input"`
-	Voice string `json:"voice"`
+
+	Voice string   `json:"voice,omitempty"`
+	Speed *float32 `json:"speed,omitempty"`
+
+	Instructions string `json:"instructions,omitempty"`
+
+	ResponseFormat string `json:"response_format,omitempty"`
 }
 
 type Transcription struct {
