@@ -23,31 +23,19 @@ var _ connector.Provider = (*Connector)(nil)
 const (
 	defaultReconnectInterval = 5 * time.Second
 	maxReconnectInterval     = 60 * time.Second
-	signalHistoryTableName   = "signal_conversation_history"
-	signalHistoryTableSchema = `
-CREATE TABLE IF NOT EXISTS %s (
-	conversation_id TEXT NOT NULL,
-	message_timestamp INTEGER NOT NULL,
-	message_role TEXT NOT NULL,
-	message_content TEXT NOT NULL,
-	PRIMARY KEY (conversation_id, message_timestamp)
-);`
 )
 
 type Connector struct {
-	id                    string
-	client                *http.Client
-	url                   string
-	accountNumber         string // E.164 phone number
-	accountUsername       string // Optional: Signal Username (name.01)
-	completer             provider.Completer
-	pollInterval          time.Duration
-	receiveMode           string
-	conversationHistories map[string][]provider.Message
-	maxHistoryMessages    int
-	historyStorageType    string
-	messagePrefixTrigger  string
-	llmTimeoutSeconds     int // Timeout for LLM completion in seconds
+	id                   string
+	client               *http.Client
+	url                  string
+	accountNumber        string // E.164 phone number
+	accountUsername      string // Optional: Signal Username (name.01)
+	completer            provider.Completer
+	pollInterval         time.Duration
+	receiveMode          string
+	messagePrefixTrigger string
+	llmTimeoutSeconds    int // Timeout for LLM completion in seconds
 }
 
 type Config struct {
@@ -57,8 +45,6 @@ type Config struct {
 	Completer            provider.Completer
 	PollInterval         time.Duration
 	ReceiveMode          string
-	MaxHistoryMessages   int
-	HistoryStorageType   string
 	MessagePrefixTrigger string
 	LLMTimeoutSeconds    int // Timeout for LLM completion in seconds
 }
@@ -91,21 +77,6 @@ func New(id string, cfg Config) (*Connector, error) {
 		return nil, fmt.Errorf("signal connector %s: invalid receive_mode '%s'", id, cfg.ReceiveMode)
 	}
 
-	maxHistory := cfg.MaxHistoryMessages
-	if maxHistory <= 0 {
-		maxHistory = 20
-		log.Printf("Signal connector (ID: %s): MaxHistoryMessages invalid, defaulting to %d", id, maxHistory)
-	}
-
-	historyStorage := strings.ToLower(cfg.HistoryStorageType)
-	if historyStorage == "" {
-		historyStorage = "memory"
-	}
-	if historyStorage != "memory" {
-		return nil, fmt.Errorf("signal connector %s: invalid history_storage_type '%s'", id, cfg.HistoryStorageType)
-	}
-	log.Printf("Signal connector (ID: %s): Using history storage: %s", id, historyStorage)
-
 	messagePrefixTrigger := strings.TrimSpace(cfg.MessagePrefixTrigger)
 	if messagePrefixTrigger != "" {
 		log.Printf("Signal connector (ID: %s): Message prefix trigger enabled: '%s'", id, messagePrefixTrigger)
@@ -117,19 +88,16 @@ func New(id string, cfg Config) (*Connector, error) {
 	}
 
 	return &Connector{
-		id:                    id,
-		client:                http.DefaultClient,
-		url:                   strings.TrimSuffix(cfg.URL, "/"),
-		accountNumber:         cfg.AccountNumber,
-		accountUsername:       accountUsername,
-		completer:             cfg.Completer,
-		pollInterval:          cfg.PollInterval,
-		receiveMode:           receiveMode,
-		conversationHistories: make(map[string][]provider.Message),
-		maxHistoryMessages:    maxHistory,
-		historyStorageType:    historyStorage,
-		messagePrefixTrigger:  messagePrefixTrigger,
-		llmTimeoutSeconds:     llmTimeout,
+		id:                   id,
+		client:               http.DefaultClient,
+		url:                  strings.TrimSuffix(cfg.URL, "/"),
+		accountNumber:        cfg.AccountNumber,
+		accountUsername:      accountUsername,
+		completer:            cfg.Completer,
+		pollInterval:         cfg.PollInterval,
+		receiveMode:          receiveMode,
+		messagePrefixTrigger: messagePrefixTrigger,
+		llmTimeoutSeconds:    llmTimeout,
 	}, nil
 }
 
@@ -138,8 +106,8 @@ func (c *Connector) ID() string {
 }
 
 func (c *Connector) Start(ctx context.Context) error {
-	log.Printf("Starting Signal connector (ID: %s), account: %s (username: '%s'), mode: %s, URL: %s, poll_interval: %v, history: %s, prefix: '%s'",
-		c.id, c.accountNumber, c.accountUsername, c.receiveMode, c.url, c.pollInterval, c.historyStorageType, c.messagePrefixTrigger)
+	log.Printf("Starting Signal connector (ID: %s), account: %s (username: '%s'), mode: %s, URL: %s, poll_interval: %v, prefix: '%s'",
+		c.id, c.accountNumber, c.accountUsername, c.receiveMode, c.url, c.pollInterval, c.messagePrefixTrigger)
 
 	if c.receiveMode == "websocket" {
 		return c.runWebSocketListener(ctx)
@@ -505,9 +473,6 @@ func (c *Connector) processReceivedMessagePayload(ctx context.Context, payload [
 
 	log.Printf("Signal connector (ID: %s): Processing for LLM. ContextID: %s, Actual Sender: %s, Message: \"%s\"", c.id, conversationContextID, actualSender, actualMessageForLLM)
 
-	var history []provider.Message
-	var err error
-
 	// Build user message with text and (if present) image file content
 	var userContents []provider.Content
 	if actualMessageForLLM != "" {
@@ -520,17 +485,9 @@ func (c *Connector) processReceivedMessagePayload(ctx context.Context, payload [
 		Role:    provider.MessageRoleUser,
 		Content: userContents,
 	}
+	history := []provider.Message{currentUserMessage}
 
-	history, _ = c.conversationHistories[conversationContextID]
-	history = append(history, currentUserMessage)
-	if len(history) > c.maxHistoryMessages {
-		startIndex := len(history) - c.maxHistoryMessages
-		history = history[startIndex:]
-		log.Printf("Signal connector (ID: %s): Memory history for %s truncated to %d messages.", c.id, conversationContextID, c.maxHistoryMessages)
-	}
-	c.conversationHistories[conversationContextID] = history
-
-	log.Printf("Signal connector (ID: %s): Sending to LLM for context %s (actual sender %s, history len %d): %+v", c.id, conversationContextID, actualSender, len(history), history)
+	log.Printf("Signal connector (ID: %s): Sending to LLM for context %s (actual sender %s): %+v", c.id, conversationContextID, actualSender, history)
 
 	// Send typing indicator before starting LLM completion
 	if receivedMsg.Envelope != nil && strings.HasPrefix(receivedMsg.Envelope.Source, "+") {
@@ -552,16 +509,7 @@ func (c *Connector) processReceivedMessagePayload(ctx context.Context, payload [
 
 	if llmResponse != nil && llmResponse.Message != nil && llmResponse.Message.Text() != "" {
 		replyText := llmResponse.Message.Text()
-		assistantMessage := *llmResponse.Message
 		log.Printf("Signal connector (ID: %s): Received from LLM for context %s: \"%s\"", c.id, conversationContextID, replyText)
-
-		history = append(history, assistantMessage)
-		if len(history) > c.maxHistoryMessages {
-			startIndex := len(history) - c.maxHistoryMessages
-			history = history[startIndex:]
-			log.Printf("Signal connector (ID: %s): Memory history for %s (after reply) truncated to %d messages.", c.id, conversationContextID, c.maxHistoryMessages)
-		}
-		c.conversationHistories[conversationContextID] = history
 
 		// Determine sender for the API call
 		apiSender := c.accountNumber

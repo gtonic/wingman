@@ -37,6 +37,9 @@ func (c *Config) registerConnectors(f *configFile) error {
 		return nil // No connectors defined or empty section
 	}
 
+	if c.connectors == nil {
+		c.connectors = make(map[string]connector.Provider)
+	}
 	for id, cfg := range configs {
 		var p connector.Provider
 		var err error
@@ -91,14 +94,12 @@ func createSignalConnector(id string, cfg connectorConfig, appConfig *Config) (c
 	signalCfg := signal.Config{
 		URL:                  cfg.URL,
 		AccountNumber:        cfg.AccountNumber,
+		AccountUsername:      cfg.AccountUsername,
 		Completer:            completer,
 		PollInterval:         pollInterval,
 		ReceiveMode:          cfg.ReceiveMode,
-		MaxHistoryMessages:   cfg.MaxHistoryMessages,
-		HistoryStorageType:   cfg.HistoryStorageType,
 		MessagePrefixTrigger: cfg.MessagePrefixTrigger,
-		AccountUsername:      cfg.AccountUsername,   // Pass account username
-		LLMTimeoutSeconds:    cfg.LLMTimeoutSeconds, // Pass LLM timeout
+		LLMTimeoutSeconds:    cfg.LLMTimeoutSeconds,
 	}
 
 	return signal.New(id, signalCfg)
