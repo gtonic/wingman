@@ -54,26 +54,17 @@ func valueSchema(r *http.Request) (*provider.Schema, error) {
 		return nil, nil
 	}
 
-	var schema struct {
-		Name        string
-		Description string
-
-		Strict *bool
-
-		Schema map[string]any
-	}
+	var schema map[string]any
 
 	if err := json.Unmarshal([]byte(val), &schema); err != nil {
 		return nil, err
 	}
 
 	return &provider.Schema{
-		Name:        schema.Name,
-		Description: schema.Description,
+		Name:        "output_schema",
+		Description: "the schema for output data in json",
 
-		Strict: schema.Strict,
-
-		Schema: schema.Schema,
+		Schema: schema,
 	}, nil
 }
 

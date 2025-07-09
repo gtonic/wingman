@@ -8,6 +8,7 @@ import (
 	"github.com/adrianliechti/wingman/config"
 	"github.com/adrianliechti/wingman/server/api"
 	"github.com/adrianliechti/wingman/server/index"
+	"github.com/adrianliechti/wingman/server/mcp"
 	"github.com/adrianliechti/wingman/server/openai"
 	"github.com/adrianliechti/wingman/server/unstructured"
 
@@ -23,6 +24,7 @@ type Server struct {
 	http.Handler
 
 	api    *api.Handler
+	mcp    *mcp.Handler
 	index  *index.Handler
 	openai *openai.Handler
 
@@ -37,8 +39,13 @@ func New(cfg *config.Config) (*Server, error) {
 	}
 
 	var memoryManager *memory.MemoryManager
-	// Memory integration not configured; pass nil for now.
 	openai, err := openai.New(cfg, memoryManager)
+
+	if err != nil {
+		return nil, err
+	}
+
+	mcp, err := mcp.New(cfg)
 
 	if err != nil {
 		return nil, err
@@ -62,7 +69,9 @@ func New(cfg *config.Config) (*Server, error) {
 		Config:  cfg,
 		Handler: mux,
 
-		api:    api,
+		api: api,
+		mcp: mcp,
+
 		index:  index,
 		openai: openai,
 
@@ -99,6 +108,7 @@ func New(cfg *config.Config) (*Server, error) {
 
 	mux.Route("/v1", func(r chi.Router) {
 		s.api.Attach(r)
+		s.mcp.Attach(r)
 		s.openai.Attach(r)
 
 		s.unstructured.Attach(r)
