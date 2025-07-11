@@ -14,7 +14,7 @@ require (
 	github.com/google/generative-ai-go v0.20.1
 	github.com/google/uuid v1.6.0
 	github.com/modelcontextprotocol/go-sdk v0.1.0
-	github.com/openai/openai-go v1.8.3
+	github.com/openai/openai-go v1.10.0
 	github.com/replicate/replicate-go v0.26.0
 	github.com/stretchr/testify v1.10.0
 	github.com/testcontainers/testcontainers-go v0.37.0
@@ -30,7 +30,7 @@ require (
 	go.opentelemetry.io/otel/sdk/log v0.13.0
 	go.opentelemetry.io/otel/sdk/metric v1.37.0
 	golang.org/x/time v0.12.0
-	google.golang.org/api v0.240.0
+	google.golang.org/api v0.241.0
 	google.golang.org/grpc v1.73.0
 	google.golang.org/protobuf v1.36.6
 	gopkg.in/yaml.v3 v3.0.1
