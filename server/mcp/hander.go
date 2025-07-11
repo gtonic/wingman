@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"time"
 
 	"github.com/adrianliechti/wingman/config"
 
@@ -44,7 +45,16 @@ func (h *Handler) Attach(r chi.Router) {
 }
 
 func (h *Handler) createServer() (*mcp.Server, error) {
-	server := mcp.NewServer("wingman", "v0.1.0", nil)
+	impl := &mcp.Implementation{
+		Name:    "wingman",
+		Version: "0.1.0",
+	}
+
+	opts := &mcp.ServerOptions{
+		KeepAlive: time.Second * 30,
+	}
+
+	server := mcp.NewServer(impl, opts)
 
 	for _, p := range h.Tools() {
 		tool, err := p.Tools(context.Background())
@@ -62,17 +72,21 @@ func (h *Handler) createServer() (*mcp.Server, error) {
 				return nil, err
 			}
 
-			handler := func(ctx context.Context, cc *mcp.ServerSession, params *mcp.CallToolParamsFor[any]) (*mcp.CallToolResultFor[any], error) {
-				args, err := convertArgs(params.Arguments)
-
-				if err != nil {
-					return nil, err
-				}
+			handler := func(ctx context.Context, session *mcp.ServerSession, rparams *mcp.CallToolParamsFor[map[string]any]) (*mcp.CallToolResult, error) {
+				args := rparams.Arguments
 
 				result, err := p.Execute(ctx, t.Name, args)
 
 				if err != nil {
-					return nil, err
+					return &mcp.CallToolResult{
+						Content: []mcp.Content{
+							&mcp.TextContent{
+								Text: err.Error(),
+							},
+						},
+
+						IsError: true,
+					}, nil
 				}
 
 				var content string
@@ -85,7 +99,7 @@ func (h *Handler) createServer() (*mcp.Server, error) {
 					content = string(data)
 				}
 
-				return &mcp.CallToolResultFor[any]{
+				return &mcp.CallToolResult{
 					Content: []mcp.Content{
 						&mcp.TextContent{
 							Text: content,
@@ -94,29 +108,16 @@ func (h *Handler) createServer() (*mcp.Server, error) {
 				}, nil
 			}
 
-			tool := mcp.NewServerTool(t.Name, t.Description, handler, mcp.Input(mcp.Schema(schema)))
+			tool := &mcp.Tool{
+				Name:        t.Name,
+				Description: t.Description,
 
-			server.AddTools(tool)
+				InputSchema: schema,
+			}
+
+			server.AddTool(tool, handler)
 		}
 	}
 
 	return server, nil
-}
-
-func convertArgs(val any) (map[string]any, error) {
-	data, err := json.Marshal(val)
-
-	if err != nil {
-		return nil, err
-	}
-
-	var args map[string]any
-
-	if err := json.Unmarshal(data, &args); err == nil {
-		return args, nil
-	}
-
-	return map[string]any{
-		"input": val,
-	}, nil
 }
