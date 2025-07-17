@@ -6,7 +6,7 @@ import (
 	"errors"
 	"net/http"
 	"os/exec"
-	"strings"
+	"time"
 
 	"github.com/adrianliechti/wingman/pkg/tool"
 
@@ -75,7 +75,17 @@ func (c *Client) createSession(ctx context.Context) (*mcp.ClientSession, error) 
 		return nil, err
 	}
 
-	client := mcp.NewClient("wingman", "1.0.0", nil)
+	impl := &mcp.Implementation{
+		Name:    "wingman",
+		Version: "1.0.0",
+	}
+
+	opts := &mcp.ClientOptions{
+		KeepAlive: time.Second * 30,
+	}
+
+	client := mcp.NewClient(impl, opts)
+
 	return client.Connect(ctx, transport)
 }
 
@@ -154,14 +164,24 @@ func (c *Client) Execute(ctx context.Context, name string, parameters map[string
 	for _, content := range resp.Content {
 		switch content := content.(type) {
 		case *mcp.TextContent:
-			text := strings.TrimSpace(content.Text)
-			return text, nil
+			return content.Text, nil
+
 		case *mcp.ImageContent:
-			return nil, errors.New("image content not supported")
+			return content.Data, nil
+
 		case *mcp.AudioContent:
-			return nil, errors.New("audio content not supported")
+			return content.Data, nil
+
 		case *mcp.EmbeddedResource:
-			return nil, errors.New("embedded resource not supported")
+			if content.Resource.URI != "" {
+				return content.Resource.URI, nil
+			}
+
+			if len(content.Resource.Blob) > 0 {
+				return content.Resource.Blob, nil
+			}
+
+			return content.Resource.Text, nil
 		default:
 			return nil, errors.New("unknown content type")
 		}

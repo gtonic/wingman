@@ -38,14 +38,14 @@ func New(cfg *config.Config) (*Server, error) {
 		return nil, err
 	}
 
-	var memoryManager *memory.MemoryManager
-	openai, err := openai.New(cfg, memoryManager)
+	mcp, err := mcp.New(cfg)
 
 	if err != nil {
 		return nil, err
 	}
 
-	mcp, err := mcp.New(cfg)
+	var memoryManager *memory.MemoryManager
+	openai, err := openai.New(cfg, memoryManager)
 
 	if err != nil {
 		return nil, err
