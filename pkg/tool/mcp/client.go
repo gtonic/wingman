@@ -115,17 +115,6 @@ func (c *Client) Tools(ctx context.Context) ([]tool.Tool, error) {
 			return nil, err
 		}
 
-		if len(t.InputSchema.Properties) == 0 {
-			schema = map[string]any{
-				"type": "object",
-				"properties": map[string]any{
-					"dummy_property": map[string]any{
-						"type": "null",
-					},
-				},
-			}
-		}
-
 		tool := tool.Tool{
 			Name:        t.Name,
 			Description: t.Description,
