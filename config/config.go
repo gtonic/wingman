@@ -155,6 +155,9 @@ func createLimiter(limit *int) *rate.Limiter {
 
 func parseEffort(val string) provider.ReasoningEffort {
 	switch val {
+	case string(provider.ReasoningEffortMinimal):
+		return provider.ReasoningEffortMinimal
+
 	case string(provider.ReasoningEffortLow):
 		return provider.ReasoningEffortLow
 

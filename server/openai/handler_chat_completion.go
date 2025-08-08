@@ -65,6 +65,9 @@ func (h *Handler) handleChatCompletion(w http.ResponseWriter, r *http.Request) {
 	}
 
 	switch req.ReasoningEffort {
+	case ReasoningEffortMinimal:
+		options.Effort = provider.ReasoningEffortMinimal
+
 	case ReasoningEffortLow:
 		options.Effort = provider.ReasoningEffortLow
 
