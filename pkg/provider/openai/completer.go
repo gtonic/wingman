@@ -251,6 +251,8 @@ func (c *Completer) convertCompletionRequest(input []provider.Message, options *
 			"o3-mini",
 			"o4",
 			"o4-mini",
+
+			"gpt-5",
 		}
 
 		if slices.Contains(models, c.model) {
@@ -283,7 +285,18 @@ func (c *Completer) convertMessages(input []provider.Message) ([]openai.ChatComp
 
 			message := openai.SystemMessage(parts)
 
-			if slices.Contains([]string{"o1", "o1-mini", "o3", "o3-mini", "o4", "o4-mini"}, c.model) {
+			models := []string{
+				"o1",
+				"o1-mini",
+				"o3",
+				"o3-mini",
+				"o4",
+				"o4-mini",
+
+				"gpt-5",
+			}
+
+			if slices.Contains(models, c.model) {
 				message = openai.DeveloperMessage(parts)
 			}
 
