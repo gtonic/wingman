@@ -266,7 +266,20 @@ func (c *Completer) convertCompletionRequest(input []provider.Message, options *
 	}
 
 	if options.Temperature != nil {
-		req.Temperature = openai.Float(float64(*options.Temperature))
+		models := []string{
+			"o1",
+			"o1-mini",
+			"o3",
+			"o3-mini",
+			"o4",
+			"o4-mini",
+
+			"gpt-5",
+		}
+
+		if !slices.Contains(models, c.model) {
+			req.Temperature = openai.Float(float64(*options.Temperature))
+		}
 	}
 
 	return req, nil
