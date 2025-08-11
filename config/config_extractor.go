@@ -1,7 +1,10 @@
 package config
 
 import (
+	"crypto/tls"
 	"errors"
+	"net/http"
+	"net/url"
 	"strings"
 
 	"github.com/adrianliechti/wingman/pkg/extractor"
@@ -47,6 +50,9 @@ type extractorConfig struct {
 
 	URL   string `yaml:"url"`
 	Token string `yaml:"token"`
+
+	Vars  map[string]string `yaml:"vars"`
+	Proxy *proxyConfig      `yaml:"proxy"`
 
 	Limit *int `yaml:"limit"`
 }
@@ -144,6 +150,26 @@ func azureExtractor(cfg extractorConfig) (extractor.Provider, error) {
 
 func exaExtractor(cfg extractorConfig) (extractor.Provider, error) {
 	var options []exa.Option
+
+	if cfg.Proxy != nil && cfg.Proxy.URL != "" {
+		proxyURL, err := url.Parse(cfg.Proxy.URL)
+
+		if err != nil {
+			return nil, err
+		}
+
+		client := &http.Client{
+			Transport: &http.Transport{
+				Proxy: http.ProxyURL(proxyURL),
+
+				TLSClientConfig: &tls.Config{
+					InsecureSkipVerify: true,
+				},
+			},
+		}
+
+		options = append(options, exa.WithClient(client))
+	}
 
 	return exa.New(cfg.Token, options...)
 }

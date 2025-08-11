@@ -310,7 +310,29 @@ func duckduckgoTool(cfg toolConfig, context toolContext) (tool.Provider, error) 
 }
 
 func exaTool(cfg toolConfig, context toolContext) (tool.Provider, error) {
-	index, err := exa.New(cfg.Token)
+	var options []exa.Option
+
+	if cfg.Proxy != nil && cfg.Proxy.URL != "" {
+		proxyURL, err := url.Parse(cfg.Proxy.URL)
+
+		if err != nil {
+			return nil, err
+		}
+
+		client := &http.Client{
+			Transport: &http.Transport{
+				Proxy: http.ProxyURL(proxyURL),
+
+				TLSClientConfig: &tls.Config{
+					InsecureSkipVerify: true,
+				},
+			},
+		}
+
+		options = append(options, exa.WithClient(client))
+	}
+
+	index, err := exa.New(cfg.Token, options...)
 
 	if err != nil {
 		return nil, err
