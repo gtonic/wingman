@@ -7,6 +7,7 @@ import (
 	"github.com/adrianliechti/wingman/pkg/limiter"
 	"github.com/adrianliechti/wingman/pkg/otel"
 	"github.com/adrianliechti/wingman/pkg/segmenter"
+	"github.com/adrianliechti/wingman/pkg/segmenter/custom"
 	"github.com/adrianliechti/wingman/pkg/segmenter/jina"
 	"github.com/adrianliechti/wingman/pkg/segmenter/text"
 	"github.com/adrianliechti/wingman/pkg/segmenter/unstructured"
@@ -96,7 +97,7 @@ func (cfg *Config) registerSegmenters(f *configFile) error {
 func createSegmenter(cfg segmenterConfig, context segmenterContext) (segmenter.Provider, error) {
 	switch strings.ToLower(cfg.Type) {
 
-	case "jina", "wingman-segmenter":
+	case "jina":
 		return jinaSegmenter(cfg)
 
 	case "text":
@@ -104,6 +105,9 @@ func createSegmenter(cfg segmenterConfig, context segmenterContext) (segmenter.P
 
 	case "unstructured":
 		return unstructuredSegmenter(cfg)
+
+	case "custom", "wingman-segmenter":
+		return customSegmenter(cfg)
 
 	default:
 		return nil, errors.New("invalid segmenter type: " + cfg.Type)
@@ -132,4 +136,10 @@ func unstructuredSegmenter(cfg segmenterConfig) (segmenter.Provider, error) {
 	}
 
 	return unstructured.New(cfg.URL, options...)
+}
+
+func customSegmenter(cfg segmenterConfig) (*custom.Client, error) {
+	var options []custom.Option
+
+	return custom.New(cfg.URL, options...)
 }
