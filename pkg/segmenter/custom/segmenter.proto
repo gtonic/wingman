@@ -1,0 +1,31 @@
+syntax = "proto3";
+
+option go_package = "github.com/adrianliechti/wingman/pkg/segmenter/custom;custom";
+
+package segmenter;
+
+service Segmenter {
+  rpc Segment (SegmentRequest) returns (SegmentResponse) {}
+}
+
+message SegmentRequest {
+  File file = 1;
+
+  optional int32 segment_length = 2;
+  optional int32 segment_overlap = 3;
+}
+
+message SegmentResponse {
+  repeated Segment segments = 1;
+}
+
+message File {
+  string name = 1;
+
+  bytes content = 2;
+  string content_type = 3;
+}
+
+message Segment {
+  string text = 1;
+}

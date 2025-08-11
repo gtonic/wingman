@@ -4,7 +4,6 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/openai/openai-go/azure"
 	"github.com/openai/openai-go/option"
 )
 
@@ -46,12 +45,14 @@ func (c *Config) Options() []option.RequestOption {
 		options := make([]option.RequestOption, 0)
 
 		options = append(options,
+			option.WithBaseURL(c.url),
 			option.WithHTTPClient(c.client),
-			azure.WithEndpoint(c.url, "preview"),
+
+			option.WithQueryAdd("api-version", "preview"),
 		)
 
 		if c.token != "" {
-			options = append(options, azure.WithAPIKey(c.token))
+			options = append(options, option.WithHeader("Api-Key", c.token))
 		}
 
 		return options
