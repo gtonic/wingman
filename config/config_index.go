@@ -1,7 +1,10 @@
 package config
 
 import (
+	"crypto/tls"
 	"errors"
+	"net/http"
+	"net/url"
 	"strings"
 
 	"github.com/adrianliechti/wingman/pkg/index"
@@ -9,6 +12,7 @@ import (
 	"github.com/adrianliechti/wingman/pkg/index/chroma"
 	"github.com/adrianliechti/wingman/pkg/index/custom"
 	"github.com/adrianliechti/wingman/pkg/index/elasticsearch"
+	"github.com/adrianliechti/wingman/pkg/index/exa"
 	"github.com/adrianliechti/wingman/pkg/index/memory"
 	"github.com/adrianliechti/wingman/pkg/index/qdrant"
 	"github.com/adrianliechti/wingman/pkg/index/weaviate"
@@ -42,6 +46,9 @@ type indexConfig struct {
 
 	URL   string `yaml:"url"`
 	Token string `yaml:"token"`
+
+	Vars  map[string]string `yaml:"vars"`
+	Proxy *proxyConfig      `yaml:"proxy"`
 
 	Namespace string `yaml:"namespace"`
 
@@ -128,6 +135,9 @@ func createIndex(cfg indexConfig, context indexContext) (index.Provider, error) 
 	case "weaviate":
 		return weaviateIndex(cfg, context)
 
+	case "exa":
+		return exaIndex(cfg, context)
+
 	case "custom":
 		return customIndex(cfg)
 
@@ -202,6 +212,32 @@ func weaviateIndex(cfg indexConfig, context indexContext) (index.Provider, error
 	}
 
 	return weaviate.New(cfg.URL, cfg.Namespace, options...)
+}
+
+func exaIndex(cfg indexConfig, context indexContext) (index.Provider, error) {
+	var options []exa.Option
+
+	if cfg.Proxy != nil && cfg.Proxy.URL != "" {
+		proxyURL, err := url.Parse(cfg.Proxy.URL)
+
+		if err != nil {
+			return nil, err
+		}
+
+		client := &http.Client{
+			Transport: &http.Transport{
+				Proxy: http.ProxyURL(proxyURL),
+
+				TLSClientConfig: &tls.Config{
+					InsecureSkipVerify: true,
+				},
+			},
+		}
+
+		options = append(options, exa.WithClient(client))
+	}
+
+	return exa.New(cfg.Token, options...)
 }
 
 func customIndex(cfg indexConfig) (*custom.Client, error) {
