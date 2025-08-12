@@ -29,7 +29,7 @@ func NewTranscriber(url, model string, options ...Option) (*Transcriber, error) 
 
 	return &Transcriber{
 		Config:         cfg,
-		transcriptions: openai.NewAudioTranscriptionService(cfg.Options()...),
+		transcriptions: openai.NewAudioTranscriptionService(cfg.HackOldAzure()...),
 	}, nil
 }
 
