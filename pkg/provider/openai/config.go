@@ -4,7 +4,6 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/openai/openai-go/azure"
 	"github.com/openai/openai-go/option"
 )
 
@@ -91,7 +90,7 @@ func (c *Config) HackOldAzure() []option.RequestOption {
 		)
 
 		if c.token != "" {
-			options = append(options, azure.WithAPIKey(c.token))
+			options = append(options, option.WithHeader("Api-Key", c.token))
 		}
 
 		return options
