@@ -97,7 +97,7 @@ func (cfg *Config) registerSegmenters(f *configFile) error {
 func createSegmenter(cfg segmenterConfig, context segmenterContext) (segmenter.Provider, error) {
 	switch strings.ToLower(cfg.Type) {
 
-	case "jina", "wingman-segmenter":
+	case "jina":
 		return jinaSegmenter(cfg)
 
 	case "text":
@@ -106,7 +106,7 @@ func createSegmenter(cfg segmenterConfig, context segmenterContext) (segmenter.P
 	case "unstructured":
 		return unstructuredSegmenter(cfg)
 
-	case "custom":
+	case "custom", "wingman-segmenter":
 		return customSegmenter(cfg)
 
 	default:

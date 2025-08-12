@@ -69,3 +69,41 @@ func (c *Config) Options() []option.RequestOption {
 
 	return options
 }
+
+func (c *Config) HackOldAzure() []option.RequestOption {
+	if c.url == "" {
+		c.url = "https://api.openai.com/v1/"
+	}
+
+	if c.client == nil {
+		c.client = http.DefaultClient
+	}
+
+	c.url = strings.TrimRight(c.url, "/") + "/"
+
+	if strings.Contains(c.url, "openai.azure.com") || strings.Contains(c.url, "cognitiveservices.azure.com") {
+		options := make([]option.RequestOption, 0)
+
+		options = append(options,
+			option.WithHTTPClient(c.client),
+			azure.WithEndpoint(c.url, "2025-04-01-preview"),
+		)
+
+		if c.token != "" {
+			options = append(options, option.WithHeader("Api-Key", c.token))
+		}
+
+		return options
+	}
+
+	options := []option.RequestOption{
+		option.WithBaseURL(c.url),
+		option.WithHTTPClient(c.client),
+	}
+
+	if c.token != "" {
+		options = append(options, option.WithAPIKey(c.token))
+	}
+
+	return options
+}

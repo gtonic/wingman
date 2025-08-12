@@ -29,7 +29,7 @@ func NewSynthesizer(url, model string, options ...Option) (*Synthesizer, error) 
 
 	return &Synthesizer{
 		Config: cfg,
-		speech: openai.NewAudioSpeechService(cfg.Options()...),
+		speech: openai.NewAudioSpeechService(cfg.HackOldAzure()...),
 	}, nil
 }
 
