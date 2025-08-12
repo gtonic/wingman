@@ -91,7 +91,7 @@ func (c *Config) HackOldAzure() []option.RequestOption {
 		)
 
 		if c.token != "" {
-			options = append(options, azure.WithAPIKey(c.token))
+			options = append(options, option.WithHeader("Api-Key", c.token))
 		}
 
 		return options
