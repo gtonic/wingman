@@ -60,14 +60,11 @@ func (c *Client) Tools(ctx context.Context) ([]tool.Tool, error) {
 	var tools []tool.Tool
 
 	for _, d := range resp.GetDefinitions() {
-		var parameters map[string]any
-		json.Unmarshal([]byte(d.Parameters), &parameters)
-
 		tools = append(tools, tool.Tool{
 			Name:        d.Name,
 			Description: d.Description,
 
-			Parameters: parameters,
+			Parameters: tool.ParseNormalizedSchema([]byte(d.Parameters)),
 		})
 	}
 

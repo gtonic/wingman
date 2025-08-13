@@ -2,7 +2,6 @@ package mcp
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"net/http"
 	"os/exec"
@@ -107,19 +106,13 @@ func (c *Client) Tools(ctx context.Context) ([]tool.Tool, error) {
 	var result []tool.Tool
 
 	for _, t := range resp.Tools {
-		var schema map[string]any
-
 		input, _ := t.InputSchema.MarshalJSON()
-
-		if err := json.Unmarshal([]byte(input), &schema); err != nil {
-			return nil, err
-		}
 
 		tool := tool.Tool{
 			Name:        t.Name,
 			Description: t.Description,
 
-			Parameters: schema,
+			Parameters: tool.ParseNormalizedSchema(input),
 		}
 
 		result = append(result, tool)
