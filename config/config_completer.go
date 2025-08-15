@@ -8,7 +8,6 @@ import (
 	"github.com/adrianliechti/wingman/pkg/provider/anthropic"
 	"github.com/adrianliechti/wingman/pkg/provider/azure"
 	"github.com/adrianliechti/wingman/pkg/provider/bedrock"
-	"github.com/adrianliechti/wingman/pkg/provider/cohere"
 	"github.com/adrianliechti/wingman/pkg/provider/custom"
 	"github.com/adrianliechti/wingman/pkg/provider/gemini"
 	"github.com/adrianliechti/wingman/pkg/provider/groq"
@@ -61,9 +60,6 @@ func createCompleter(cfg providerConfig, model modelContext) (provider.Completer
 
 	case "bedrock":
 		return bedrockCompleter(cfg, model)
-
-	case "cohere":
-		return cohereCompleter(cfg, model)
 
 	case "gemini", "google":
 		return geminiCompleter(cfg, model)
@@ -127,16 +123,6 @@ func bedrockCompleter(cfg providerConfig, model modelContext) (provider.Complete
 	var options []bedrock.Option
 
 	return bedrock.NewCompleter(model.ID, options...)
-}
-
-func cohereCompleter(cfg providerConfig, model modelContext) (provider.Completer, error) {
-	var options []cohere.Option
-
-	if cfg.Token != "" {
-		options = append(options, cohere.WithToken(cfg.Token))
-	}
-
-	return cohere.NewCompleter(model.ID, options...)
 }
 
 func geminiCompleter(cfg providerConfig, model modelContext) (provider.Completer, error) {
