@@ -6,7 +6,6 @@ import (
 
 	"github.com/adrianliechti/wingman/pkg/provider"
 	"github.com/adrianliechti/wingman/pkg/provider/azure"
-	"github.com/adrianliechti/wingman/pkg/provider/cohere"
 	"github.com/adrianliechti/wingman/pkg/provider/custom"
 	"github.com/adrianliechti/wingman/pkg/provider/gemini"
 	"github.com/adrianliechti/wingman/pkg/provider/huggingface"
@@ -45,9 +44,6 @@ func createEmbedder(cfg providerConfig, model modelContext) (provider.Embedder, 
 	case "azure":
 		return azureEmbedder(cfg, model)
 
-	case "cohere":
-		return cohereEmbedder(cfg, model)
-
 	case "gemini", "google":
 		return geminiEmbedder(cfg, model)
 
@@ -85,16 +81,6 @@ func azureEmbedder(cfg providerConfig, model modelContext) (provider.Embedder, e
 	}
 
 	return azure.NewEmbedder(cfg.URL, model.ID, options...)
-}
-
-func cohereEmbedder(cfg providerConfig, model modelContext) (provider.Embedder, error) {
-	var options []cohere.Option
-
-	if cfg.Token != "" {
-		options = append(options, cohere.WithToken(cfg.Token))
-	}
-
-	return cohere.NewEmbedder(model.ID, options...)
 }
 
 func geminiEmbedder(cfg providerConfig, model modelContext) (provider.Embedder, error) {

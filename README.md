@@ -9,58 +9,146 @@ The LLM Platform or Inference Hub is an open-source product designed to simplify
 
 ### Multi-Provider Support
 
-The platform integrates with a wide range of LLM providers, including but not limited to
+The platform integrates with a wide range of LLM providers:
 
-- OpenAI Platform and Azure OpenAI Service to access models such as GPT, DALL-E and Whisper
-- Anthropic, Cohere, Google, Groq, Jina, Mistral and Replicate for various specialised models.
-- Local deployments such as Ollama, LLAMA.CPP, WHISPER.CPP and Mistral.RS for running models locally.
-- Community models via Hugging Face
+**Chat/Completion Models:**
+- OpenAI Platform and Azure OpenAI Service (GPT models)
+- Anthropic (Claude models)
+- Google Gemini
+- AWS Bedrock
+- Groq
+- Mistral AI
+- xAI
+- Hugging Face
+- Local deployments: Ollama, LLAMA.CPP, Mistral.RS
 - Custom models via gRPC plugins
+
+**Embedding Models:**
+- OpenAI, Azure OpenAI, Jina, Hugging Face, Google Gemini
+- Local: Ollama, LLAMA.CPP
+- Custom embedders via gRPC
+
+**Media Processing:**
+- Image generation: OpenAI DALL-E, Replicate
+- Speech-to-text: OpenAI Whisper, Groq Whisper, WHISPER.CPP
+- Text-to-speech: OpenAI TTS
+- Reranking: Jina
+
+### Document Processing & RAG
+
+**Document Extractors:**
+- Apache Tika for various document formats
+- Unstructured.io for advanced document parsing
+- Azure Document Intelligence
+- Jina Reader for web content
+- Exa and Tavily for web search and extraction
+- Text extraction from plain files
+- Custom extractors via gRPC
+
+**Text Segmentation:**
+- Jina segmenter for semantic chunking
+- Text-based chunking with configurable sizes
+- Unstructured.io segmentation
+- Custom segmenters via gRPC
+
+**Information Retrieval:**
+- Web search: DuckDuckGo, Exa, Tavily
+- Custom retrievers via gRPC plugins
+
+### Advanced AI Workflows
+
+**Chains & Agents:**
+- Agent/Assistant chains with tool calling capabilities
+- Custom conversation flows
+- Multi-step reasoning workflows
+- Tool integration and function calling
+
+**Tools & Function Calling:**
+- Built-in tools: search, extract, retrieve, render, synthesize, translate
+- **Model Context Protocol (MCP) support**: Full server and client implementation
+  - Connect to external MCP servers as tool providers
+  - Built-in MCP server exposing platform capabilities
+  - Multiple transport methods (HTTP streaming, SSE, command execution)
+- Custom tools via gRPC plugins
+
+**Additional Capabilities:**
+- Text summarization (via chat models)
+- Language translation
+- Content rendering and formatting
+
+### Infrastructure & Operations
+
+**Routing & Load Balancing:**
+- Round-robin load balancer for distributing requests
+- Model fallback strategies
+- Request routing across multiple providers
+
+**Rate Limiting & Control:**
+- Per-provider and per-model rate limiting
+- Request throttling and queuing
+- Resource usage controls
+
+**Authentication & Security:**
+- Static token authentication
+- OpenID Connect (OIDC) integration
+- Secure credential management
+
+**API Compatibility:**
+- OpenAI-compatible API endpoints
+- Custom API configurations
+- Multiple API versions support
+
+**Observability & Monitoring:**
+- Full OpenTelemetry integration
+- Request tracing across all components
+- Comprehensive metrics and logging
+- Performance monitoring and debugging
 
 ### Flexible Configuration
 
-Developers can define providers, models, credentials, vector databases, tools, document extractors or advanced chains using YAML configuration files. This approach streamlines the integration process and makes it easier to manage multiple services and models.
-
-### Routing and Load Balancing
-
-The platform includes routing capabilities such as a round-robin load balancer to efficiently distribute requests across multiple models or providers. This increases scalability and ensures high availability.
-
-### Vector Databases and Indexes
-
-Supports integration with various vector databases and indexing services for efficient data retrieval and storage.
-
-Supported systems include
-- SaaS offerings such as Azure Search
-- Self-hosting solutions such as ChromaDB, Qdrant, Weaviate, Postgres or Elasticsearch
-- Custom retrievers via gRPC plugins
-- In-memory and temporary indexes
-
-### Observability
-
-The platform is fully traceable using OpenTelemetry, which provides comprehensive observability and monitoring of the entire system and its components. This increases transparency and reliability, enabling proactive maintenance and smoother operation of LLM applications at scale.
+Developers can define providers, models, credentials, document processing pipelines, tools, and advanced AI workflows using YAML configuration files. This approach streamlines integration and makes it easy to manage complex AI applications.
 
 
 ## Architecture
 
 ![Architecture](docs/architecture.png)
 
-The architecture is designed to be modular and extensible, allowing developers to plug in different providers and services as needed. It consists of a number of key components:
+The architecture is designed to be modular and extensible, allowing developers to plug in different providers and services as needed. It consists of key components:
 
-- Providers: Interface to various AI / LLM services.
-- Indexes: Handle data storage and retrieval
-- Extractors: Process and extract data from documents or web pages
-- Segmenters: Semantically split text into chunks for RAG
-- Summarisers: Compress large texts or prompts
-- Translate: Translate prompt input or output or entire documents
-- Routers & Rate Limiters: Manage how requests are distributed across models
-- Tools: Pre-built or custom tools for translating, retrieving documents or searching the web using function calls.
+**Core Providers:**
+- **Completers**: Chat/completion models for text generation and reasoning
+- **Embedders**: Vector embedding models for semantic understanding
+- **Renderers**: Image generation and visual content creation
+- **Synthesizers**: Text-to-speech and audio generation
+- **Transcribers**: Speech-to-text and audio processing
+- **Rerankers**: Result ranking and relevance scoring
 
-## Use Cases:
+**Document & Data Processing:**
+- **Extractors**: Document parsing and content extraction from various formats
+- **Segmenters**: Text chunking and semantic segmentation for RAG
+- **Retrievers**: Web search and information retrieval
+- **Summarizers**: Content compression and summarization
+- **Translators**: Multi-language text translation
 
-- Unified enterprise chat using multiple sources and specialised agents
-- Scalable LLM applications: Ideal for building applications that need to scale horizontally and handle high volumes of requests
-- Multi-model deployment: Useful for applications that require access to different models from different vendors
-- Custom workflows: Enables the creation of custom NLP workflows by combining different services and models
+**AI Workflows & Tools:**
+- **Chains**: Multi-step AI workflows and agent-based reasoning
+- **Tools**: Function calling, web search, document processing, and custom capabilities
+- **APIs**: Multiple API formats and compatibility layers
+
+**Infrastructure:**
+- **Routers**: Load balancing and request distribution
+- **Rate Limiters**: Resource control and throttling
+- **Authorizers**: Authentication and access control
+- **Observability**: OpenTelemetry tracing and monitoring
+
+## Use Cases
+
+- **Enterprise AI Applications**: Unified platform for multiple AI services and models
+- **RAG (Retrieval-Augmented Generation)**: Document processing, semantic search, and knowledge retrieval
+- **AI Agents & Workflows**: Multi-step reasoning, tool integration, and autonomous task execution
+- **Scalable LLM Deployment**: High-volume applications with load balancing and failover
+- **Multi-Modal AI**: Combining text, image, and audio processing capabilities
+- **Custom AI Pipelines**: Flexible workflows using custom tools and chains
 
 
 ## Integrations & Configuration
@@ -134,23 +222,36 @@ providers:
 ```
 
 
-#### Cohere
+#### Google Gemini
 
 ```yaml
 providers:
-  - type: cohere
-    token: ${COHERE_API_KEY}
+  - type: gemini
+    token: ${GOOGLE_API_KEY}
 
-    # https://docs.cohere.com/docs/models
+    # https://ai.google.dev/gemini-api/docs/models/gemini
     #
     # {alias}:
-    #   - id: {cohere api model name}
+    #   - id: {gemini api model name}
     models:
-      cohere-command-r-plus:
-        id: command-r-plus
+      gemini-1.5-pro:
+        id: gemini-1.5-pro-latest
       
-      cohere-embed-multilingual-v3:
-        id: embed-multilingual-v3.0
+      gemini-1.5-flash:
+        id: gemini-1.5-flash-latest
+```
+
+
+#### AWS Bedrock
+
+```yaml
+providers:
+  - type: bedrock
+    # AWS credentials configured via environment or IAM roles
+
+    models:
+      claude-3-sonnet:
+        id: anthropic.claude-3-sonnet-20240229-v1:0
 ```
 
 
@@ -188,6 +289,19 @@ providers:
     models:
       mistral-large:
         id: mistral-large-latest
+```
+
+
+#### xAI
+
+```yaml
+providers:
+  - type: xai
+    token: ${XAI_API_KEY}
+
+    models:
+      grok-beta:
+        id: grok-beta
 ```
 
 
@@ -329,89 +443,52 @@ routers:
 ```
 
 
-### Vector Databses / Indexes
+### Information Retrieval / Web Search
 
-#### Chroma
-
-https://www.trychroma.com
-
-```shell
-# using Docker
-$ docker run -it --rm -p 9083:8000 -v chroma-data:/chroma/chroma ghcr.io/chroma-core/chroma
-```
+#### DuckDuckGo
 
 ```yaml
-indexes:
-  docs:
-    type: chroma
-    url: http://localhost:9083
-    namespace: docs
-    embedder: text-embedding-3-large
+retrievers:
+  web:
+    type: duckduckgo
 ```
 
 
-#### Weaviate
+#### Exa
 
-https://weaviate.io
-
-```shell
-# using Docker
-$ docker run -it --rm -p 9084:8080 -v weaviate-data:/var/lib/weaviate -e AUTHENTICATION_ANONYMOUS_ACCESS_ENABLED=true -e PERSISTENCE_DATA_PATH=/var/lib/weaviate semitechnologies/weaviate
-```
+https://exa.ai
 
 ```yaml
-indexes:
-  docs:
-    type: weaviate
-    url: http://localhost:9084
-    namespace: Document
-    embedder: text-embedding-3-large
+retrievers:
+  exa:
+    type: exa
+    token: ${EXA_API_KEY}
 ```
 
 
-#### Qdrant
+#### Tavily
 
-```shell
-$ docker run -p 6333:6333 qdrant/qdrant:v1.11.4
-```
+https://tavily.com
 
 ```yaml
-indexes:
-  docs:
-    type: qdrant
-    url: http://localhost:6333
-    namespace: docs
-    embedder: text-embedding-3-large
+retrievers:
+  tavily:
+    type: tavily
+    token: ${TAVILY_API_KEY}
 ```
 
 
-#### In-Memory
+#### Custom Retriever
 
 ```yaml
-indexes:
-  docs:
-    type: memory   
-    embedder: text-embedding-3-large
+retrievers:
+  custom:
+    type: custom
+    url: http://localhost:8080
 ```
 
 
-#### OpenSearch / Elasticsearch
-
-```shell
-# using Docker
-docker run -it --rm -p 9200:9200 -v opensearch-data:/usr/share/opensearch/data -e "discovery.type=single-node" -e DISABLE_SECURITY_PLUGIN=true opensearchproject/opensearch:latest
-```
-
-```yaml
-indexes:
-  docs:
-    type: elasticsearch
-    url: http://localhost:9200
-    namespace: docs
-```
-
-
-### Extractor
+### Document Extraction
 
 #### Tika
 
@@ -447,4 +524,277 @@ extractors:
   unstructured:
     type: unstructured
     url: http://localhost:9085/general/v0/general
+```
+
+
+#### Azure Document Intelligence
+
+```yaml
+extractors:
+  azure:
+    type: azure
+    url: https://YOUR_INSTANCE.cognitiveservices.azure.com
+    token: ${AZURE_API_KEY}
+```
+
+
+#### Jina Reader
+
+```yaml
+extractors:
+  jina:
+    type: jina
+    token: ${JINA_API_KEY}
+```
+
+
+#### Exa / Tavily Web Extraction
+
+```yaml
+extractors:
+  exa:
+    type: exa
+    token: ${EXA_API_KEY}
+
+  tavily:
+    type: tavily
+    token: ${TAVILY_API_KEY}
+```
+
+
+#### Text Extractor
+
+```yaml
+extractors:
+  text:
+    type: text
+```
+
+
+#### Custom Extractor
+
+```yaml
+extractors:
+  custom:
+    type: custom
+    url: http://localhost:8080
+```
+
+
+### Text Segmentation
+
+#### Jina Segmenter
+
+```yaml
+segmenters:
+  jina:
+    type: jina
+    token: ${JINA_API_KEY}
+```
+
+
+#### Text Segmenter
+
+```yaml
+segmenters:
+  text:
+    type: text
+    chunkSize: 1000
+    chunkOverlap: 200
+```
+
+
+#### Unstructured Segmenter
+
+```yaml
+segmenters:
+  unstructured:
+    type: unstructured
+    url: http://localhost:9085/general/v0/general
+```
+
+
+#### Custom Segmenter
+
+```yaml
+segmenters:
+  custom:
+    type: custom
+    url: http://localhost:8080
+```
+
+
+### AI Agents & Chains
+
+#### Agent/Assistant Chain
+
+```yaml
+chains:
+  assistant:
+    type: agent
+    model: gpt-4o
+    tools:
+      - search
+      - extract
+    messages:
+      - role: system
+        content: "You are a helpful AI assistant."
+```
+
+
+### Tools & Function Calling
+
+#### Model Context Protocol (MCP)
+
+The platform provides comprehensive support for the Model Context Protocol (MCP), enabling integration with MCP-compatible tools and services.
+
+**MCP Server Support:**
+- Built-in MCP server that exposes platform tools to MCP clients
+- Automatic tool discovery and schema generation
+- Multiple transport methods (HTTP streaming, SSE, command-line)
+
+**MCP Client Support:**
+- Connect to external MCP servers as tool providers
+- Support for various MCP transport methods
+- Automatic tool registration and execution
+
+**MCP Tool Configuration:**
+
+```yaml
+tools:
+  # MCP server via HTTP streaming
+  mcp-streamable:
+    type: mcp
+    url: http://localhost:8080/mcp
+
+  # MCP server via Server-Sent Events
+  mcp-sse:
+    type: mcp
+    url: http://localhost:8080/sse
+    vars:
+      api-key: ${API_KEY}
+
+  # MCP server via command execution
+  mcp-command:
+    type: mcp
+    command: /path/to/mcp-server
+    args:
+      - --config
+      - /path/to/config.json
+    vars:
+      ENV_VAR: value
+```
+
+**Built-in MCP Server:**
+
+The platform automatically exposes its tools via MCP protocol at `/mcp` endpoint, allowing other MCP clients to discover and use platform capabilities.
+
+#### Built-in Tools
+
+```yaml
+tools:
+  search:
+    type: search
+    retriever: web
+
+  extract:
+    type: extract
+    extractor: tika
+
+  translate:
+    type: translate
+    translator: default
+
+  render:
+    type: render
+    renderer: dalle-3
+
+  synthesize:
+    type: synthesize
+    synthesizer: tts-1
+```
+
+
+#### Custom Tools
+
+```yaml
+tools:
+  custom-tool:
+    type: custom
+    url: http://localhost:8080
+```
+
+
+### Authentication
+
+#### Static Authentication
+
+```yaml
+authorizers:
+  - type: static
+    tokens:
+      - "your-secret-token"
+```
+
+
+#### OIDC Authentication
+
+```yaml
+authorizers:
+  - type: oidc
+    url: https://your-oidc-provider.com
+    audience: your-audience
+```
+
+
+### Routing & Load Balancing
+
+#### Round-robin Load Balancer
+
+```yaml
+routers:
+  llama-lb:
+    type: roundrobin
+    models:
+      - llama-3-8b
+      - groq-llama-3-8b
+      - huggingface-llama-3-8b
+```
+
+
+### Rate Limiting
+
+Add rate limiting to any provider:
+
+```yaml
+providers:
+  - type: openai
+    token: sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+    limit: 10  # requests per second
+
+    models:
+      gpt-4o:
+        limit: 5  # override for specific model
+```
+
+
+### Summarization & Translation
+
+#### Automatic Summarization
+
+Summarization is automatically available for any chat model:
+
+```yaml
+# Use any completer model for summarization
+# The platform automatically adapts chat models for summarization tasks
+```
+
+
+#### Translation
+
+```yaml
+translators:
+  default:
+    type: default
+    # Uses configured chat models for translation
 ```
