@@ -9,8 +9,8 @@ import (
 
 	"github.com/adrianliechti/wingman/pkg/provider"
 
-	"github.com/openai/openai-go"
-	"github.com/openai/openai-go/shared"
+	"github.com/openai/openai-go/v2"
+	"github.com/openai/openai-go/v2/shared"
 )
 
 var _ provider.Completer = (*Completer)(nil)
@@ -391,12 +391,14 @@ func (c *Completer) convertMessages(input []provider.Message) ([]openai.ChatComp
 				}
 
 				if c.ToolCall != nil {
-					call := openai.ChatCompletionMessageToolCallParam{
-						ID: c.ToolCall.ID,
+					call := openai.ChatCompletionMessageToolCallUnionParam{
+						OfFunction: &openai.ChatCompletionMessageFunctionToolCallParam{
+							ID: c.ToolCall.ID,
 
-						Function: openai.ChatCompletionMessageToolCallFunctionParam{
-							Name:      c.ToolCall.Name,
-							Arguments: c.ToolCall.Arguments,
+							Function: openai.ChatCompletionMessageFunctionToolCallFunctionParam{
+								Name:      c.ToolCall.Name,
+								Arguments: c.ToolCall.Arguments,
+							},
 						},
 					}
 
@@ -415,8 +417,8 @@ func (c *Completer) convertMessages(input []provider.Message) ([]openai.ChatComp
 	return result, nil
 }
 
-func convertTools(tools []provider.Tool) ([]openai.ChatCompletionToolParam, error) {
-	var result []openai.ChatCompletionToolParam
+func convertTools(tools []provider.Tool) ([]openai.ChatCompletionToolUnionParam, error) {
+	var result []openai.ChatCompletionToolUnionParam
 
 	for _, t := range tools {
 		if t.Name == "" {
@@ -437,8 +439,10 @@ func convertTools(tools []provider.Tool) ([]openai.ChatCompletionToolParam, erro
 			function.Strict = openai.Bool(*t.Strict)
 		}
 
-		tool := openai.ChatCompletionToolParam{
-			Function: function,
+		tool := openai.ChatCompletionToolUnionParam{
+			OfFunction: &openai.ChatCompletionFunctionToolParam{
+				Function: function,
+			},
 		}
 
 		result = append(result, tool)

@@ -7,7 +7,7 @@ import (
 	"github.com/adrianliechti/wingman/pkg/provider"
 
 	"github.com/google/uuid"
-	"github.com/openai/openai-go"
+	"github.com/openai/openai-go/v2"
 )
 
 var _ provider.Synthesizer = (*Synthesizer)(nil)

@@ -3,7 +3,7 @@ package openai
 import (
 	"errors"
 
-	"github.com/openai/openai-go"
+	"github.com/openai/openai-go/v2"
 )
 
 func convertError(err error) error {
