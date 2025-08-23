@@ -78,7 +78,7 @@ func (c *Client) createSession(ctx context.Context) (*mcp.ClientSession, error) 
 
 	client := mcp.NewClient(impl, opts)
 
-	return client.Connect(ctx, transport)
+	return client.Connect(ctx, transport, nil)
 }
 
 func (c *Client) Tools(ctx context.Context) ([]tool.Tool, error) {

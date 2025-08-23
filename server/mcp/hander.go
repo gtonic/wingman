@@ -9,7 +9,7 @@ import (
 	"github.com/adrianliechti/wingman/config"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/modelcontextprotocol/go-sdk/jsonschema"
+	"github.com/google/jsonschema-go/jsonschema"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
@@ -72,40 +72,43 @@ func (h *Handler) createServer() (*mcp.Server, error) {
 				return nil, err
 			}
 
-			handler := func(ctx context.Context, session *mcp.ServerSession, rparams *mcp.CallToolParamsFor[map[string]any]) (*mcp.CallToolResult, error) {
-				args := rparams.Arguments
+			handler := func(ctx context.Context, req *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+				var args map[string]any
+
+				if r, ok := req.Params.Arguments.(json.RawMessage); ok {
+					json.Unmarshal(r, &args)
+				}
 
 				result, err := p.Execute(ctx, t.Name, args)
 
 				if err != nil {
+					return nil, err
+				}
+
+				switch v := result.(type) {
+				case *mcp.CallToolResult:
+					return v, nil
+
+				case string:
 					return &mcp.CallToolResult{
 						Content: []mcp.Content{
 							&mcp.TextContent{
-								Text: err.Error(),
+								Text: v,
 							},
 						},
-
-						IsError: true,
 					}, nil
-				}
 
-				var content string
-
-				switch v := result.(type) {
-				case string:
-					content = v
 				default:
 					data, _ := json.Marshal(v)
-					content = string(data)
-				}
 
-				return &mcp.CallToolResult{
-					Content: []mcp.Content{
-						&mcp.TextContent{
-							Text: content,
+					return &mcp.CallToolResult{
+						Content: []mcp.Content{
+							&mcp.TextContent{
+								Text: string(data),
+							},
 						},
-					},
-				}, nil
+					}, nil
+				}
 			}
 
 			tool := &mcp.Tool{
