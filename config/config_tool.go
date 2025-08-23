@@ -9,10 +9,8 @@ import (
 	"github.com/adrianliechti/wingman/pkg/tool/custom"
 	"github.com/adrianliechti/wingman/pkg/tool/extract"
 	"github.com/adrianliechti/wingman/pkg/tool/mcp"
-	"github.com/adrianliechti/wingman/pkg/tool/render"
 	"github.com/adrianliechti/wingman/pkg/tool/retrieve"
 	"github.com/adrianliechti/wingman/pkg/tool/search"
-	"github.com/adrianliechti/wingman/pkg/tool/synthesize"
 	"github.com/adrianliechti/wingman/pkg/tool/translate"
 
 	"github.com/adrianliechti/wingman/pkg/extractor"
@@ -149,17 +147,11 @@ func createTool(cfg toolConfig, context toolContext) (tool.Provider, error) {
 	case "extractor", "crawler":
 		return extractTool(cfg, context)
 
-	case "renderer", "draw":
-		return renderTool(cfg, context)
-
 	case "retriever":
 		return retrieveTool(cfg, context)
 
 	case "search":
 		return searchTool(cfg, context)
-
-	case "synthesizer", "speak":
-		return synthesizeTool(cfg, context)
 
 	case "translator":
 		return translateTool(cfg, context)
@@ -181,12 +173,6 @@ func extractTool(cfg toolConfig, context toolContext) (tool.Provider, error) {
 	return extract.New(context.Extractor, options...)
 }
 
-func renderTool(cfg toolConfig, context toolContext) (tool.Provider, error) {
-	var options []render.Option
-
-	return render.New(context.Renderer, options...)
-}
-
 func retrieveTool(cfg toolConfig, context toolContext) (tool.Provider, error) {
 	var options []retrieve.Option
 
@@ -197,12 +183,6 @@ func searchTool(cfg toolConfig, context toolContext) (tool.Provider, error) {
 	var options []search.Option
 
 	return search.New(context.Retriever, options...)
-}
-
-func synthesizeTool(cfg toolConfig, context toolContext) (tool.Provider, error) {
-	var options []synthesize.Option
-
-	return synthesize.New(context.Synthesizer, options...)
 }
 
 func translateTool(cfg toolConfig, context toolContext) (tool.Provider, error) {

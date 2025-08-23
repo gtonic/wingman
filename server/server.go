@@ -82,8 +82,6 @@ func New(cfg *config.Config) (*Server, error) {
 
 	mux.Use(s.handleAuth)
 
-	mux.Handle("/files/*", http.FileServer(http.Dir("public")))
-
 	mux.Route("/v1", func(r chi.Router) {
 		s.api.Attach(r)
 		s.mcp.Attach(r)
