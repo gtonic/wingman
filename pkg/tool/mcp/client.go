@@ -2,6 +2,7 @@ package mcp
 
 import (
 	"context"
+	"crypto/tls"
 	"errors"
 	"net/http"
 	"os/exec"
@@ -28,14 +29,10 @@ func NewCommand(command string, env, args []string) (*Client, error) {
 }
 
 func NewStreamable(url string, headers map[string]string) (*Client, error) {
-	var client *http.Client
-
-	if len(headers) > 0 {
-		client = &http.Client{
-			Transport: &rt{
-				headers: headers,
-			},
-		}
+	client := &http.Client{
+		Transport: &rt{
+			headers: headers,
+		},
 	}
 
 	return &Client{
@@ -48,14 +45,10 @@ func NewStreamable(url string, headers map[string]string) (*Client, error) {
 }
 
 func NewSSE(url string, headers map[string]string) (*Client, error) {
-	var client *http.Client
-
-	if len(headers) > 0 {
-		client = &http.Client{
-			Transport: &rt{
-				headers: headers,
-			},
-		}
+	client := &http.Client{
+		Transport: &rt{
+			headers: headers,
+		},
 	}
 
 	return &Client{
@@ -173,8 +166,7 @@ func (c *Client) Execute(ctx context.Context, name string, parameters map[string
 }
 
 type rt struct {
-	headers   map[string]string
-	transport http.RoundTripper
+	headers map[string]string
 }
 
 func (rt *rt) RoundTrip(req *http.Request) (*http.Response, error) {
@@ -186,10 +178,10 @@ func (rt *rt) RoundTrip(req *http.Request) (*http.Response, error) {
 		req.Header.Set(key, value)
 	}
 
-	tr := rt.transport
+	tr := http.DefaultTransport.(*http.Transport).Clone()
 
-	if tr == nil {
-		tr = http.DefaultTransport
+	tr.TLSClientConfig = &tls.Config{
+		InsecureSkipVerify: true, // TODO: make configurable
 	}
 
 	return tr.RoundTrip(req)
