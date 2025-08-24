@@ -1,9 +1,10 @@
-package gemini
+package google
 
 import (
+	"context"
 	"net/http"
 
-	"google.golang.org/api/option"
+	"google.golang.org/genai"
 )
 
 type Config struct {
@@ -27,16 +28,13 @@ func WithToken(token string) Option {
 	}
 }
 
-func (c *Config) Options() []option.ClientOption {
-	options := []option.ClientOption{}
+func (c *Config) newClient(ctx context.Context) (*genai.Client, error) {
+	config := &genai.ClientConfig{
+		APIKey:  c.token,
+		Backend: genai.BackendGeminiAPI,
 
-	if c.client != nil {
-		options = append(options, option.WithHTTPClient(c.client))
+		HTTPClient: c.client,
 	}
 
-	if c.token != "" {
-		options = append(options, option.WithAPIKey(c.token))
-	}
-
-	return options
+	return genai.NewClient(ctx, config)
 }

@@ -1,4 +1,4 @@
-package gemini
+package google
 
 import (
 	"context"
@@ -6,9 +6,8 @@ import (
 	"errors"
 	"strings"
 
-	"github.com/google/generative-ai-go/genai"
 	"github.com/google/uuid"
-	"google.golang.org/api/iterator"
+	"google.golang.org/genai"
 
 	"github.com/adrianliechti/wingman/pkg/provider"
 )
@@ -38,71 +37,29 @@ func (c *Completer) Complete(ctx context.Context, messages []provider.Message, o
 		options = new(provider.CompleteOptions)
 	}
 
-	client, err := genai.NewClient(ctx, c.Options()...)
+	client, err := c.newClient(ctx)
 
 	if err != nil {
 		return nil, err
 	}
 
-	defer client.Close()
-
-	system, err := convertSystem(messages)
+	contents, err := convertMessages(messages)
 
 	if err != nil {
 		return nil, err
 	}
 
-	history, err := convertHistory(messages)
-
-	if err != nil {
-		return nil, err
-	}
-
-	model := client.GenerativeModel(c.model)
-	model.SystemInstruction = system
-
-	if len(options.Tools) > 0 {
-		model.Tools = convertTools(options.Tools)
-	}
-
-	if len(options.Stop) > 0 {
-		model.StopSequences = options.Stop
-	}
-
-	if options.MaxTokens != nil {
-		model.SetMaxOutputTokens(int32(*options.MaxTokens))
-	}
-
-	if options.Temperature != nil {
-		model.SetTemperature(*options.Temperature)
-	}
-
-	if options.Format == provider.CompletionFormatJSON || options.Schema != nil {
-		model.ResponseMIMEType = "application/json"
-
-		if options.Schema != nil {
-			model.ResponseSchema = convertSchema(options.Schema.Schema)
-		}
-	}
-
-	session := model.StartChat()
-	session.History = history
-
-	prompt, err := convertContent(messages[len(messages)-1])
-
-	if err != nil {
-		return nil, err
-	}
+	config := convertGenerateConfig(convertInstruction(messages), options)
 
 	if options.Stream != nil {
-		return c.completeStream(ctx, session, prompt.Parts, options)
+		return c.completeStream(ctx, client, contents, config, options)
 	}
 
-	return c.complete(ctx, session, prompt.Parts, options)
+	return c.complete(ctx, client, contents, config, options)
 }
 
-func (c *Completer) complete(ctx context.Context, session *genai.ChatSession, parts []genai.Part, options *provider.CompleteOptions) (*provider.Completion, error) {
-	resp, err := session.SendMessage(ctx, parts...)
+func (c *Completer) complete(ctx context.Context, client *genai.Client, contents []*genai.Content, config *genai.GenerateContentConfig, options *provider.CompleteOptions) (*provider.Completion, error) {
+	resp, err := client.Models.GenerateContent(ctx, c.model, contents, config)
 
 	if err != nil {
 		return nil, convertError(err)
@@ -121,22 +78,16 @@ func (c *Completer) complete(ctx context.Context, session *genai.ChatSession, pa
 			Content: toContent(candidate.Content),
 		},
 
-		Usage: toUsage(resp.UsageMetadata),
+		Usage: toCompletionUsage(resp.UsageMetadata),
 	}, nil
 }
 
-func (c *Completer) completeStream(ctx context.Context, session *genai.ChatSession, parts []genai.Part, options *provider.CompleteOptions) (*provider.Completion, error) {
-	iter := session.SendMessageStream(ctx, parts...)
+func (c *Completer) completeStream(ctx context.Context, client *genai.Client, contents []*genai.Content, config *genai.GenerateContentConfig, options *provider.CompleteOptions) (*provider.Completion, error) {
+	iter := client.Models.GenerateContentStream(ctx, c.model, contents, config)
 
 	result := provider.CompletionAccumulator{}
 
-	for i := 0; ; i++ {
-		resp, err := iter.Next()
-
-		if err == iterator.Done {
-			break
-		}
-
+	for resp, err := range iter {
 		if err != nil {
 			return nil, convertError(err)
 		}
@@ -148,7 +99,7 @@ func (c *Completer) completeStream(ctx context.Context, session *genai.ChatSessi
 				Role: provider.MessageRoleAssistant,
 			},
 
-			Usage: toUsage(resp.UsageMetadata),
+			Usage: toCompletionUsage(resp.UsageMetadata),
 		}
 
 		if len(resp.Candidates) > 0 {
@@ -168,8 +119,8 @@ func (c *Completer) completeStream(ctx context.Context, session *genai.ChatSessi
 	return result.Result(), nil
 }
 
-func convertSystem(messages []provider.Message) (*genai.Content, error) {
-	var parts []genai.Part
+func convertInstruction(messages []provider.Message) *genai.Content {
+	var parts []*genai.Part
 
 	for _, m := range messages {
 		if m.Role != provider.MessageRoleSystem {
@@ -178,18 +129,50 @@ func convertSystem(messages []provider.Message) (*genai.Content, error) {
 
 		for _, c := range m.Content {
 			if c.Text != "" {
-				parts = append(parts, genai.Text(c.Text))
+				parts = append(parts, genai.NewPartFromText(c.Text))
 			}
 		}
 	}
 
 	if len(parts) == 0 {
-		return nil, nil
+		return nil
 	}
 
 	return &genai.Content{
 		Parts: parts,
-	}, nil
+	}
+}
+
+func convertGenerateConfig(instruction *genai.Content, options *provider.CompleteOptions) *genai.GenerateContentConfig {
+	config := &genai.GenerateContentConfig{
+		SystemInstruction: instruction,
+	}
+
+	if len(options.Tools) > 0 {
+		config.Tools = convertTools(options.Tools)
+	}
+
+	if len(options.Stop) > 0 {
+		config.StopSequences = options.Stop
+	}
+
+	if options.MaxTokens != nil {
+		config.MaxOutputTokens = int32(*options.MaxTokens)
+	}
+
+	if options.Temperature != nil {
+		config.Temperature = options.Temperature
+	}
+
+	if options.Format == provider.CompletionFormatJSON || options.Schema != nil {
+		config.ResponseMIMEType = "application/json"
+
+		if options.Schema != nil {
+			config.ResponseJsonSchema = options.Schema.Schema
+		}
+	}
+
+	return config
 }
 
 func convertContent(message provider.Message) (*genai.Content, error) {
@@ -201,7 +184,7 @@ func convertContent(message provider.Message) (*genai.Content, error) {
 
 		for _, c := range message.Content {
 			if c.Text != "" {
-				content.Parts = append(content.Parts, genai.Text(c.Text))
+				content.Parts = append(content.Parts, genai.NewPartFromText(c.Text))
 			}
 
 			if c.File != nil {
@@ -209,7 +192,7 @@ func convertContent(message provider.Message) (*genai.Content, error) {
 				case "image/png", "image/jpeg", "image/webp", "image/heic", "image/heif":
 					format := strings.Split(c.File.ContentType, "/")[1]
 
-					part := genai.ImageData(format, c.File.Content)
+					part := genai.NewPartFromBytes(c.File.Content, format)
 					content.Parts = append(content.Parts, part)
 
 				default:
@@ -231,11 +214,7 @@ func convertContent(message provider.Message) (*genai.Content, error) {
 					parameters = map[string]any{"data": val}
 				}
 
-				part := genai.FunctionResponse{
-					Name:     c.ToolResult.ID,
-					Response: parameters,
-				}
-
+				part := genai.NewPartFromFunctionResponse(c.ToolResult.ID, parameters)
 				content.Parts = append(content.Parts, part)
 			}
 		}
@@ -245,7 +224,7 @@ func convertContent(message provider.Message) (*genai.Content, error) {
 
 		for _, c := range message.Content {
 			if c.Text != "" {
-				part := genai.Text(c.Text)
+				part := genai.NewPartFromText(c.Text)
 				content.Parts = append(content.Parts, part)
 			}
 
@@ -253,11 +232,7 @@ func convertContent(message provider.Message) (*genai.Content, error) {
 				var data map[string]any
 				json.Unmarshal([]byte(c.ToolCall.Arguments), &data)
 
-				part := genai.FunctionCall{
-					Name: c.ToolCall.Name,
-					Args: data,
-				}
-
+				part := genai.NewPartFromFunctionCall(c.ToolCall.Name, data)
 				content.Parts = append(content.Parts, part)
 			}
 		}
@@ -266,14 +241,10 @@ func convertContent(message provider.Message) (*genai.Content, error) {
 	return content, nil
 }
 
-func convertHistory(messages []provider.Message) ([]*genai.Content, error) {
+func convertMessages(messages []provider.Message) ([]*genai.Content, error) {
 	var result []*genai.Content
 
-	if len(messages) < 1 {
-		return result, nil
-	}
-
-	for _, m := range messages[:len(messages)-1] {
+	for _, m := range messages {
 		if m.Role == provider.MessageRoleUser {
 			content, err := convertContent(m)
 
@@ -295,10 +266,6 @@ func convertHistory(messages []provider.Message) ([]*genai.Content, error) {
 		}
 	}
 
-	if len(result) == 0 {
-		return nil, nil
-	}
-
 	return result, nil
 }
 
@@ -310,7 +277,7 @@ func convertTools(tools []provider.Tool) []*genai.Tool {
 			Name:        t.Name,
 			Description: t.Description,
 
-			Parameters: convertSchema(t.Parameters),
+			ParametersJsonSchema: t.Parameters,
 		}
 
 		functions = append(functions, function)
@@ -327,78 +294,21 @@ func convertTools(tools []provider.Tool) []*genai.Tool {
 	}
 }
 
-func convertSchema(parameters map[string]any) *genai.Schema {
-	if len(parameters) == 0 {
-		return nil
-	}
-
-	schema := &genai.Schema{
-		Type: genai.TypeObject,
-	}
-
-	if val, ok := parameters["type"].(string); ok {
-		switch val {
-		case "string":
-			schema.Type = genai.TypeString
-		case "number":
-			schema.Type = genai.TypeNumber
-		case "integer":
-			schema.Type = genai.TypeInteger
-		case "boolean ":
-			schema.Type = genai.TypeBoolean
-		case "array":
-			schema.Type = genai.TypeArray
-		case "object":
-			schema.Type = genai.TypeObject
-		}
-	}
-
-	if val, ok := parameters["description"].(string); ok {
-		schema.Description = val
-	}
-
-	if val, ok := parameters["enum"].([]string); ok {
-		schema.Enum = val
-	}
-
-	if val, ok := parameters["items"].(map[string]any); ok {
-		schema.Items = convertSchema(val)
-	}
-
-	if val, ok := parameters["properties"].(map[string]any); ok {
-		schema.Properties = make(map[string]*genai.Schema)
-
-		for key, value := range val {
-			parameters, ok := value.(map[string]any)
-
-			if ok {
-				schema.Properties[key] = convertSchema(parameters)
-			}
-		}
-	}
-
-	if val, ok := parameters["required"].([]string); ok {
-		schema.Required = val
-	}
-
-	return schema
-}
-
 func toContent(content *genai.Content) []provider.Content {
 	var parts []provider.Content
 
 	for _, p := range content.Parts {
-		switch v := p.(type) {
-		case genai.Text:
-			parts = append(parts, provider.TextContent(string(v)))
+		if p.Text != "" {
+			parts = append(parts, provider.TextContent(p.Text))
+		}
 
-		case genai.FunctionCall:
-			data, _ := json.Marshal(v.Args)
+		if p.FunctionCall != nil {
+			data, _ := json.Marshal(p.FunctionCall.Args)
 
 			call := provider.ToolCall{
 				ID: uuid.NewString(),
 
-				Name:      v.Name,
+				Name:      p.FunctionCall.Name,
 				Arguments: string(data),
 			}
 
@@ -412,7 +322,7 @@ func toContent(content *genai.Content) []provider.Content {
 func toCompletionResult(candidate *genai.Candidate) provider.CompletionReason {
 	if candidate.Content != nil {
 		for _, p := range candidate.Content.Parts {
-			if _, ok := p.(genai.FunctionCall); ok {
+			if p.FunctionCall != nil {
 				return provider.CompletionReasonTool
 			}
 		}
@@ -435,7 +345,7 @@ func toCompletionResult(candidate *genai.Candidate) provider.CompletionReason {
 	return ""
 }
 
-func toUsage(metadata *genai.UsageMetadata) *provider.Usage {
+func toCompletionUsage(metadata *genai.GenerateContentResponseUsageMetadata) *provider.Usage {
 	if metadata == nil {
 		return nil
 	}

@@ -7,7 +7,7 @@ import (
 	"github.com/adrianliechti/wingman/pkg/provider"
 	"github.com/adrianliechti/wingman/pkg/provider/azure"
 	"github.com/adrianliechti/wingman/pkg/provider/custom"
-	"github.com/adrianliechti/wingman/pkg/provider/gemini"
+	"github.com/adrianliechti/wingman/pkg/provider/google"
 	"github.com/adrianliechti/wingman/pkg/provider/huggingface"
 	"github.com/adrianliechti/wingman/pkg/provider/jina"
 	"github.com/adrianliechti/wingman/pkg/provider/llama"
@@ -45,7 +45,7 @@ func createEmbedder(cfg providerConfig, model modelContext) (provider.Embedder, 
 		return azureEmbedder(cfg, model)
 
 	case "gemini", "google":
-		return geminiEmbedder(cfg, model)
+		return googleEmbedder(cfg, model)
 
 	case "github":
 		return azureEmbedder(cfg, model)
@@ -83,14 +83,14 @@ func azureEmbedder(cfg providerConfig, model modelContext) (provider.Embedder, e
 	return azure.NewEmbedder(cfg.URL, model.ID, options...)
 }
 
-func geminiEmbedder(cfg providerConfig, model modelContext) (provider.Embedder, error) {
-	var options []gemini.Option
+func googleEmbedder(cfg providerConfig, model modelContext) (provider.Embedder, error) {
+	var options []google.Option
 
 	if cfg.Token != "" {
-		options = append(options, gemini.WithToken(cfg.Token))
+		options = append(options, google.WithToken(cfg.Token))
 	}
 
-	return gemini.NewEmbedder(model.ID, options...)
+	return google.NewEmbedder(model.ID, options...)
 }
 
 func huggingfaceEmbedder(cfg providerConfig, model modelContext) (provider.Embedder, error) {

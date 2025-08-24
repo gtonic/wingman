@@ -1,10 +1,11 @@
-package gemini
+package google
 
 import (
 	"context"
 
 	"github.com/adrianliechti/wingman/pkg/provider"
-	"github.com/google/generative-ai-go/genai"
+
+	"google.golang.org/genai"
 )
 
 var _ provider.Embedder = (*Embedder)(nil)
@@ -28,23 +29,15 @@ func NewEmbedder(model string, options ...Option) (*Embedder, error) {
 }
 
 func (e *Embedder) Embed(ctx context.Context, texts []string) (*provider.Embedding, error) {
-	client, err := genai.NewClient(ctx, e.Options()...)
+	client, err := e.newClient(ctx)
 
 	if err != nil {
 		return nil, err
 	}
 
-	defer client.Close()
+	var contents []*genai.Content
 
-	model := client.EmbeddingModel(e.model)
-
-	batch := model.NewBatch()
-
-	for _, text := range texts {
-		batch.AddContent(genai.Text(text))
-	}
-
-	resp, err := model.BatchEmbedContents(ctx, batch)
+	resp, err := client.Models.EmbedContent(ctx, e.model, contents, nil)
 
 	if err != nil {
 		return nil, convertError(err)
