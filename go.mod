@@ -13,7 +13,7 @@ require (
 	github.com/google/jsonschema-go v0.2.1-0.20250825175020-748c325cec76
 	github.com/google/uuid v1.6.0
 	github.com/modelcontextprotocol/go-sdk v0.3.1
-	github.com/openai/openai-go/v2 v2.1.1
+	github.com/openai/openai-go/v2 v2.2.0
 	github.com/replicate/replicate-go v0.26.0
 	github.com/stretchr/testify v1.11.1
 	github.com/testcontainers/testcontainers-go v0.38.0
