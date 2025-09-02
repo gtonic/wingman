@@ -2,125 +2,90 @@ package mcp
 
 import (
 	"context"
-	"encoding/json"
 	"net/http"
+	"slices"
+	"sync"
 	"time"
 
 	"github.com/adrianliechti/wingman/config"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/google/jsonschema-go/jsonschema"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 type Handler struct {
 	*config.Config
-	http.Handler
+
+	mu sync.Mutex
+
+	cache     map[string]*mcp.Server
+	cacheTime map[string]time.Time
+}
+
+func (h *Handler) getServer(ctx context.Context, id string) (*mcp.Server, error) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
+	if server, ok := h.cache[id]; ok {
+		if t, ok := h.cacheTime[id]; ok {
+			fresh := time.Since(t) < time.Minute*5
+			empty := len(slices.Collect(server.Sessions())) == 0
+
+			if fresh || !empty {
+				return server, nil
+			}
+		}
+	}
+
+	p, err := h.MCP(id)
+
+	if err != nil {
+		return nil, err
+	}
+
+	s, err := p.Server(ctx)
+
+	if err != nil {
+		return nil, err
+	}
+
+	h.cache[id] = s
+	h.cacheTime[id] = time.Now()
+
+	return s, nil
 }
 
 func New(cfg *config.Config) (*Handler, error) {
-	mux := chi.NewMux()
-
 	h := &Handler{
-		Config:  cfg,
-		Handler: mux,
+		Config: cfg,
+
+		cache:     make(map[string]*mcp.Server),
+		cacheTime: make(map[string]time.Time),
 	}
 
-	h.Attach(mux)
 	return h, nil
 }
 
 func (h *Handler) Attach(r chi.Router) {
-	var server *mcp.Server
-
-	getServer := func(request *http.Request) *mcp.Server {
-		if server == nil {
-			server, _ = h.createServer()
-		}
-
-		return server
-	}
-
-	r.Handle("/mcp", mcp.NewStreamableHTTPHandler(getServer, &mcp.StreamableHTTPOptions{}))
+	r.HandleFunc("/mcp/{id}", h.handleMCP)
 }
 
-func (h *Handler) createServer() (*mcp.Server, error) {
-	impl := &mcp.Implementation{
-		Name:    "wingman",
-		Version: "0.1.0",
-	}
+func (h *Handler) handleMCP(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
 
-	opts := &mcp.ServerOptions{
-		KeepAlive: time.Second * 30,
-	}
-
-	server := mcp.NewServer(impl, opts)
-
-	for _, p := range h.Tools() {
-		tool, err := p.Tools(context.Background())
+	getServer := func(request *http.Request) *mcp.Server {
+		s, err := h.getServer(request.Context(), id)
 
 		if err != nil {
-			return nil, err
+			return nil
 		}
 
-		for _, t := range tool {
-			data, _ := json.Marshal(t.Parameters)
-
-			schema := new(jsonschema.Schema)
-
-			if err := schema.UnmarshalJSON(data); err != nil {
-				return nil, err
-			}
-
-			handler := func(ctx context.Context, req *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-				var args map[string]any
-
-				if r, ok := req.Params.Arguments.(json.RawMessage); ok {
-					json.Unmarshal(r, &args)
-				}
-
-				result, err := p.Execute(ctx, t.Name, args)
-
-				if err != nil {
-					return nil, err
-				}
-
-				switch v := result.(type) {
-				case *mcp.CallToolResult:
-					return v, nil
-
-				case string:
-					return &mcp.CallToolResult{
-						Content: []mcp.Content{
-							&mcp.TextContent{
-								Text: v,
-							},
-						},
-					}, nil
-
-				default:
-					data, _ := json.Marshal(v)
-
-					return &mcp.CallToolResult{
-						Content: []mcp.Content{
-							&mcp.TextContent{
-								Text: string(data),
-							},
-						},
-					}, nil
-				}
-			}
-
-			tool := &mcp.Tool{
-				Name:        t.Name,
-				Description: t.Description,
-
-				InputSchema: schema,
-			}
-
-			server.AddTool(tool, handler)
-		}
+		return s
 	}
 
-	return server, nil
+	handler := mcp.NewStreamableHTTPHandler(getServer, &mcp.StreamableHTTPOptions{
+		Stateless: true,
+	})
+
+	handler.ServeHTTP(w, r)
 }

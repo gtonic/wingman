@@ -3,7 +3,6 @@ package mcp
 import (
 	"context"
 	"crypto/tls"
-	"errors"
 	"net/http"
 	"os/exec"
 	"time"
@@ -123,7 +122,7 @@ func (c *Client) Execute(ctx context.Context, name string, parameters map[string
 
 	defer session.Close()
 
-	resp, err := session.CallTool(ctx, &mcp.CallToolParams{
+	result, err := session.CallTool(ctx, &mcp.CallToolParams{
 		Name:      name,
 		Arguments: parameters,
 	})
@@ -132,37 +131,7 @@ func (c *Client) Execute(ctx context.Context, name string, parameters map[string
 		return nil, err
 	}
 
-	if len(resp.Content) > 1 {
-		return nil, errors.New("multiple content types not supported")
-	}
-
-	for _, content := range resp.Content {
-		switch content := content.(type) {
-		case *mcp.TextContent:
-			return content.Text, nil
-
-		case *mcp.ImageContent:
-			return content.Data, nil
-
-		case *mcp.AudioContent:
-			return content.Data, nil
-
-		case *mcp.EmbeddedResource:
-			if content.Resource.URI != "" {
-				return content.Resource.URI, nil
-			}
-
-			if len(content.Resource.Blob) > 0 {
-				return content.Resource.Blob, nil
-			}
-
-			return content.Resource.Text, nil
-		default:
-			return nil, errors.New("unknown content type")
-		}
-	}
-
-	return nil, errors.New("no content returned")
+	return result, nil
 }
 
 type rt struct {

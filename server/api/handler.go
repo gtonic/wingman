@@ -11,18 +11,13 @@ import (
 
 type Handler struct {
 	*config.Config
-	http.Handler
 }
 
 func New(cfg *config.Config) (*Handler, error) {
-	mux := chi.NewMux()
-
 	h := &Handler{
-		Config:  cfg,
-		Handler: mux,
+		Config: cfg,
 	}
 
-	h.Attach(mux)
 	return h, nil
 }
 

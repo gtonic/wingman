@@ -88,10 +88,6 @@ func New(cfg *config.Config) (*Server, error) {
 		s.openai.Attach(r)
 	})
 
-	for name, handler := range cfg.APIs {
-		mux.Mount("/api/"+name, handler)
-	}
-
 	return s, nil
 }
 
