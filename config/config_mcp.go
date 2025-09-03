@@ -4,20 +4,23 @@ import (
 	"errors"
 	"maps"
 	"slices"
+	"strings"
 
 	"github.com/adrianliechti/wingman/pkg/mcp"
+	"github.com/adrianliechti/wingman/pkg/mcp/proxy"
+	"github.com/adrianliechti/wingman/pkg/mcp/server"
 	"github.com/adrianliechti/wingman/pkg/tool"
 )
 
-func (cfg *Config) RegisterMCP(id string, s *mcp.Server) {
+func (cfg *Config) RegisterMCP(id string, p mcp.Provider) {
 	if cfg.mcps == nil {
-		cfg.mcps = make(map[string]*mcp.Server)
+		cfg.mcps = make(map[string]mcp.Provider)
 	}
 
-	cfg.mcps[id] = s
+	cfg.mcps[id] = p
 }
 
-func (cfg *Config) MCP(id string) (*mcp.Server, error) {
+func (cfg *Config) MCP(id string) (mcp.Provider, error) {
 	if cfg.mcps != nil {
 		if s, ok := cfg.mcps[id]; ok {
 			return s, nil
@@ -28,9 +31,17 @@ func (cfg *Config) MCP(id string) (*mcp.Server, error) {
 }
 
 type mcpConfig struct {
+	Type string `yaml:"type"`
+
 	Name string `yaml:"name"`
 
+	URL   string `yaml:"url"`
+	Token string `yaml:"token"`
+
 	Tools []string `yaml:"tools"`
+
+	Vars  map[string]string `yaml:"vars"`
+	Proxy *proxyConfig      `yaml:"proxy"`
 
 	Instructions string `yaml:"instructions"`
 }
@@ -81,14 +92,29 @@ func (cfg *Config) registerMCP(f *configFile) error {
 	return nil
 }
 
-func createMCP(config mcpConfig, context mcpContext) (*mcp.Server, error) {
-	name := config.Name
+func createMCP(cfg mcpConfig, context mcpContext) (mcp.Provider, error) {
+	switch strings.ToLower(cfg.Type) {
+	case "server":
+		return serverMCP(cfg, context)
+	case "proxy":
+		return proxyMCP(cfg, context)
+	default:
+		return nil, errors.New("invalid mcp type: " + cfg.Type)
+	}
+}
 
-	if config.Name != "" {
-		name = config.Name
+func serverMCP(cfg mcpConfig, context mcpContext) (mcp.Provider, error) {
+	name := cfg.Name
+
+	if cfg.Name != "" {
+		name = cfg.Name
 	}
 
 	tools := slices.Collect(maps.Values(context.Tools))
 
-	return mcp.New(name, tools)
+	return server.New(name, tools)
+}
+
+func proxyMCP(cfg mcpConfig, context mcpContext) (mcp.Provider, error) {
+	return proxy.New(cfg.URL)
 }

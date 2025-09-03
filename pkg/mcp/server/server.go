@@ -1,20 +1,26 @@
-package mcp
+package server
 
 import (
 	"context"
 	"encoding/json"
+	"net/http"
 	"time"
 
+	mcppkg "github.com/adrianliechti/wingman/pkg/mcp"
 	"github.com/adrianliechti/wingman/pkg/tool"
 	"github.com/google/jsonschema-go/jsonschema"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
+
+var _ mcppkg.Provider = (*Server)(nil)
 
 type Server struct {
 	impl *mcp.Implementation
 	opts *mcp.ServerOptions
 
 	tools []tool.Provider
+
+	handler http.Handler
 }
 
 func New(name string, tools []tool.Provider) (*Server, error) {
@@ -30,10 +36,44 @@ func New(name string, tools []tool.Provider) (*Server, error) {
 		tools: tools,
 	}
 
+	go s.refresh()
+
 	return s, nil
 }
 
-func (s *Server) Server(ctx context.Context) (*mcp.Server, error) {
+func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if s.handler == nil {
+		http.Error(w, "MCP not ready", http.StatusPreconditionFailed)
+		return
+	}
+
+	s.handler.ServeHTTP(w, r)
+}
+
+func (s *Server) refresh() {
+	for {
+		srv, err := s.createServer(context.Background())
+
+		if err != nil {
+			time.Sleep(5 * time.Second)
+			continue
+		}
+
+		opts := &mcp.StreamableHTTPOptions{
+			Stateless: true,
+		}
+
+		h := mcp.NewStreamableHTTPHandler(func(r *http.Request) *mcp.Server {
+			return srv
+		}, opts)
+
+		s.handler = h
+
+		time.Sleep(time.Minute * 5)
+	}
+}
+
+func (s *Server) createServer(ctx context.Context) (*mcp.Server, error) {
 	server := mcp.NewServer(s.impl, s.opts)
 
 	for _, p := range s.tools {

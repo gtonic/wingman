@@ -20,8 +20,8 @@ github.com/AzureAD/microsoft-authentication-library-for-go v1.2.2 h1:XHOnouVk1mx
 github.com/AzureAD/microsoft-authentication-library-for-go v1.2.2/go.mod h1:wP83P5OoQ5p6ip3ScPr0BAq0BvuPAvacpEuSzyouqAI=
 github.com/Microsoft/go-winio v0.6.2 h1:F2VQgta7ecxGYO8k3ZZz3RS8fVIXVxONVUPlNERoyfY=
 github.com/Microsoft/go-winio v0.6.2/go.mod h1:yd8OoFMLzJbo9gZq8j5qaps8bJ9aShtEA8Ipt1oGCvU=
-github.com/anthropics/anthropic-sdk-go v1.9.1 h1:raRhZKmayVSVZtLpLDd6IsMXvxLeeSU03/2IBTerWlg=
-github.com/anthropics/anthropic-sdk-go v1.9.1/go.mod h1:WTz31rIUHUHqai2UslPpw5CwXrQP3geYBioRV4WOLvE=
+github.com/anthropics/anthropic-sdk-go v1.10.0 h1:jDKQTfC0miIEj21eMmPrNSLKTNdNa3nHZOhd4wZz1cI=
+github.com/anthropics/anthropic-sdk-go v1.10.0/go.mod h1:WTz31rIUHUHqai2UslPpw5CwXrQP3geYBioRV4WOLvE=
 github.com/aws/aws-sdk-go-v2 v1.38.3 h1:B6cV4oxnMs45fql4yRH+/Po/YU+597zgWqvDpYMturk=
 github.com/aws/aws-sdk-go-v2 v1.38.3/go.mod h1:sDioUELIUO9Znk23YVmIk86/9DOpkbyyVb1i/gUNFXY=
 github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream v1.7.1 h1:i8p8P4diljCr60PpJp6qZXNlgX4m2yQFpYk+9ZT+J4E=
@@ -155,8 +155,8 @@ github.com/modelcontextprotocol/go-sdk v0.3.1 h1:0z04yIPlSwTluuelCBaL+wUag4YeflI
 github.com/modelcontextprotocol/go-sdk v0.3.1/go.mod h1:whv0wHnsTphwq7CTiKYHkLtwLC06WMoY2KpO+RB9yXQ=
 github.com/morikuni/aec v1.0.0 h1:nP9CBfwrvYnBRgY6qfDQkygYDmYwOilePFkwzv4dU8A=
 github.com/morikuni/aec v1.0.0/go.mod h1:BbKIizmSmc5MMPqRYbxO4ZU0S0+P200+tUnFx7PXmsc=
-github.com/openai/openai-go/v2 v2.2.0 h1:5DpsQ5ksY2ciSY3paf3EpicECHi93fTkBhoYyF3HIJo=
-github.com/openai/openai-go/v2 v2.2.0/go.mod h1:sIUkR+Cu/PMUVkSKhkk742PRURkQOCFhiwJ7eRSBqmk=
+github.com/openai/openai-go/v2 v2.3.0 h1:y9U+V1tlHjvvb/5XIswuySqnG5EnKBFAbMxgBvTHXvg=
+github.com/openai/openai-go/v2 v2.3.0/go.mod h1:sIUkR+Cu/PMUVkSKhkk742PRURkQOCFhiwJ7eRSBqmk=
 github.com/opencontainers/go-digest v1.0.0 h1:apOUWs51W5PlhuyGyz9FCeeBIOUDA/6nW8Oi/yOhh5U=
 github.com/opencontainers/go-digest v1.0.0/go.mod h1:0JzlMkj0TRzQZfJkVvzbP0HBR3IKzErnv2BNG4W4MAM=
 github.com/opencontainers/image-spec v1.1.1 h1:y0fUlFfIZhPF1W537XOLg0/fcx6zcHCJwooC2xJA040=

@@ -42,7 +42,7 @@ type Config struct {
 	tools  map[string]tool.Provider
 	chains map[string]chain.Provider
 
-	mcps map[string]*mcp.Server
+	mcps map[string]mcp.Provider
 }
 
 func Parse(path string) (*Config, error) {
