@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"time"
 
@@ -15,25 +16,37 @@ import (
 var _ mcppkg.Provider = (*Server)(nil)
 
 type Server struct {
-	impl *mcp.Implementation
-	opts *mcp.ServerOptions
+	http.Handler
 
 	tools []tool.Provider
 
-	handler http.Handler
+	server *mcp.Server
 }
 
 func New(name string, tools []tool.Provider) (*Server, error) {
+	serverImpl := &mcp.Implementation{
+		Name: name,
+	}
+
+	serverOpts := &mcp.ServerOptions{
+		KeepAlive: time.Second * 30,
+	}
+
+	server := mcp.NewServer(serverImpl, serverOpts)
+
+	handlerOpts := &mcp.StreamableHTTPOptions{
+		Stateless: true,
+	}
+
+	handler := mcp.NewStreamableHTTPHandler(func(r *http.Request) *mcp.Server {
+		return server
+	}, handlerOpts)
+
 	s := &Server{
-		impl: &mcp.Implementation{
-			Name: name,
-		},
+		Handler: handler,
 
-		opts: &mcp.ServerOptions{
-			KeepAlive: time.Second * 30,
-		},
-
-		tools: tools,
+		server: server,
+		tools:  tools,
 	}
 
 	go s.refresh()
@@ -41,55 +54,38 @@ func New(name string, tools []tool.Provider) (*Server, error) {
 	return s, nil
 }
 
-func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if s.handler == nil {
-		http.Error(w, "MCP not ready", http.StatusPreconditionFailed)
-		return
-	}
-
-	s.handler.ServeHTTP(w, r)
-}
-
 func (s *Server) refresh() {
 	for {
-		srv, err := s.createServer(context.Background())
-
-		if err != nil {
-			time.Sleep(5 * time.Second)
+		if err := s.refreshTools(); err != nil {
+			time.Sleep(time.Second * 30)
 			continue
 		}
-
-		opts := &mcp.StreamableHTTPOptions{
-			Stateless: true,
-		}
-
-		h := mcp.NewStreamableHTTPHandler(func(r *http.Request) *mcp.Server {
-			return srv
-		}, opts)
-
-		s.handler = h
 
 		time.Sleep(time.Minute * 5)
 	}
 }
 
-func (s *Server) createServer(ctx context.Context) (*mcp.Server, error) {
-	server := mcp.NewServer(s.impl, s.opts)
+func (s *Server) refreshTools() error {
+	ctx := context.Background()
+
+	var resultErrr error
 
 	for _, p := range s.tools {
-		tool, err := p.Tools(ctx)
+		tools, err := p.Tools(ctx)
 
 		if err != nil {
-			return nil, err
+			resultErrr = errors.Join(resultErrr, err)
+			continue
 		}
 
-		for _, t := range tool {
+		for _, t := range tools {
 			data, _ := json.Marshal(t.Parameters)
 
 			schema := new(jsonschema.Schema)
 
 			if err := schema.UnmarshalJSON(data); err != nil {
-				return nil, err
+				resultErrr = errors.Join(resultErrr, err)
+				continue
 			}
 
 			handler := func(ctx context.Context, req *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
@@ -138,9 +134,9 @@ func (s *Server) createServer(ctx context.Context) (*mcp.Server, error) {
 				InputSchema: schema,
 			}
 
-			server.AddTool(tool, handler)
+			s.server.AddTool(tool, handler)
 		}
 	}
 
-	return server, nil
+	return resultErrr
 }
