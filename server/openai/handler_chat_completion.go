@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/adrianliechti/wingman/pkg/provider"
+	"github.com/adrianliechti/wingman/pkg/tool"
 
 	"github.com/google/uuid"
 )
@@ -96,6 +97,9 @@ func (h *Handler) handleChatCompletion(w http.ResponseWriter, r *http.Request) {
 	}
 
 	switch req.ReasoningEffort {
+	case ReasoningEffortMinimal:
+		options.Effort = provider.ReasoningEffortMinimal
+
 	case ReasoningEffortLow:
 		options.Effort = provider.ReasoningEffortLow
 
@@ -538,7 +542,7 @@ func toTools(tools []Tool) ([]provider.Tool, error) {
 				Name:        t.ToolFunction.Name,
 				Description: t.ToolFunction.Description,
 
-				Parameters: t.ToolFunction.Parameters,
+				Parameters: tool.NormalizeSchema(t.ToolFunction.Parameters),
 			}
 
 			result = append(result, function)

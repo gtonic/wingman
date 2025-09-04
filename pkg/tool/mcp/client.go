@@ -2,8 +2,7 @@ package mcp
 
 import (
 	"context"
-	"encoding/json"
-	"errors"
+	"crypto/tls"
 	"net/http"
 	"os/exec"
 	"time"
@@ -29,14 +28,10 @@ func NewCommand(command string, env, args []string) (*Client, error) {
 }
 
 func NewStreamable(url string, headers map[string]string) (*Client, error) {
-	var client *http.Client
-
-	if len(headers) > 0 {
-		client = &http.Client{
-			Transport: &rt{
-				headers: headers,
-			},
-		}
+	client := &http.Client{
+		Transport: &rt{
+			headers: headers,
+		},
 	}
 
 	return &Client{
@@ -49,14 +44,10 @@ func NewStreamable(url string, headers map[string]string) (*Client, error) {
 }
 
 func NewSSE(url string, headers map[string]string) (*Client, error) {
-	var client *http.Client
-
-	if len(headers) > 0 {
-		client = &http.Client{
-			Transport: &rt{
-				headers: headers,
-			},
-		}
+	client := &http.Client{
+		Transport: &rt{
+			headers: headers,
+		},
 	}
 
 	return &Client{
@@ -70,7 +61,6 @@ func NewSSE(url string, headers map[string]string) (*Client, error) {
 
 func (c *Client) createSession(ctx context.Context) (*mcp.ClientSession, error) {
 	transport, err := c.transportFn()
-
 	if err != nil {
 		return nil, err
 	}
@@ -85,54 +75,30 @@ func (c *Client) createSession(ctx context.Context) (*mcp.ClientSession, error) 
 	}
 
 	client := mcp.NewClient(impl, opts)
-
-	return client.Connect(ctx, transport)
+	return client.Connect(ctx, transport, nil)
 }
 
 func (c *Client) Tools(ctx context.Context) ([]tool.Tool, error) {
 	session, err := c.createSession(ctx)
-
 	if err != nil {
 		return nil, err
 	}
-
 	defer session.Close()
 
 	resp, err := session.ListTools(ctx, nil)
-
 	if err != nil {
 		return nil, err
 	}
 
 	var result []tool.Tool
-
 	for _, t := range resp.Tools {
-		var schema map[string]any
-
 		input, _ := t.InputSchema.MarshalJSON()
-
-		if err := json.Unmarshal([]byte(input), &schema); err != nil {
-			return nil, err
-		}
-
-		if len(t.InputSchema.Properties) == 0 {
-			schema = map[string]any{
-				"type": "object",
-				"properties": map[string]any{
-					"dummy_property": map[string]any{
-						"type": "null",
-					},
-				},
-			}
-		}
 
 		tool := tool.Tool{
 			Name:        t.Name,
 			Description: t.Description,
-
-			Parameters: schema,
+			Parameters:  tool.ParseNormalizedSchema(input),
 		}
-
 		result = append(result, tool)
 	}
 
@@ -141,59 +107,24 @@ func (c *Client) Tools(ctx context.Context) ([]tool.Tool, error) {
 
 func (c *Client) Execute(ctx context.Context, name string, parameters map[string]any) (any, error) {
 	session, err := c.createSession(ctx)
-
 	if err != nil {
 		return nil, err
 	}
-
 	defer session.Close()
 
-	resp, err := session.CallTool(ctx, &mcp.CallToolParams{
+	result, err := session.CallTool(ctx, &mcp.CallToolParams{
 		Name:      name,
 		Arguments: parameters,
 	})
-
 	if err != nil {
 		return nil, err
 	}
 
-	if len(resp.Content) > 1 {
-		return nil, errors.New("multiple content types not supported")
-	}
-
-	for _, content := range resp.Content {
-		switch content := content.(type) {
-		case *mcp.TextContent:
-			return content.Text, nil
-
-		case *mcp.ImageContent:
-			return content.Data, nil
-
-		case *mcp.AudioContent:
-			return content.Data, nil
-
-		case *mcp.EmbeddedResource:
-			if content.Resource.URI != "" {
-				return content.Resource.URI, nil
-			}
-
-			if len(content.Resource.Blob) > 0 {
-				return content.Resource.Blob, nil
-			}
-
-			return content.Resource.Text, nil
-		default:
-			return nil, errors.New("unknown content type")
-		}
-
-	}
-
-	return nil, errors.New("no content returned")
+	return result, nil
 }
 
 type rt struct {
-	headers   map[string]string
-	transport http.RoundTripper
+	headers map[string]string
 }
 
 func (rt *rt) RoundTrip(req *http.Request) (*http.Response, error) {
@@ -201,14 +132,12 @@ func (rt *rt) RoundTrip(req *http.Request) (*http.Response, error) {
 		if req.Header.Get(key) != "" {
 			continue // already set
 		}
-
 		req.Header.Set(key, value)
 	}
 
-	tr := rt.transport
-
-	if tr == nil {
-		tr = http.DefaultTransport
+	tr := http.DefaultTransport.(*http.Transport).Clone()
+	tr.TLSClientConfig = &tls.Config{
+		InsecureSkipVerify: true, // TODO: make configurable
 	}
 
 	return tr.RoundTrip(req)

@@ -8,9 +8,8 @@ import (
 	"github.com/adrianliechti/wingman/pkg/provider/anthropic"
 	"github.com/adrianliechti/wingman/pkg/provider/azure"
 	"github.com/adrianliechti/wingman/pkg/provider/bedrock"
-	"github.com/adrianliechti/wingman/pkg/provider/cohere"
 	"github.com/adrianliechti/wingman/pkg/provider/custom"
-	"github.com/adrianliechti/wingman/pkg/provider/gemini"
+	"github.com/adrianliechti/wingman/pkg/provider/google"
 	"github.com/adrianliechti/wingman/pkg/provider/groq"
 	"github.com/adrianliechti/wingman/pkg/provider/huggingface"
 	"github.com/adrianliechti/wingman/pkg/provider/llama"
@@ -62,11 +61,8 @@ func createCompleter(cfg providerConfig, model modelContext) (provider.Completer
 	case "bedrock":
 		return bedrockCompleter(cfg, model)
 
-	case "cohere":
-		return cohereCompleter(cfg, model)
-
 	case "gemini", "google":
-		return geminiCompleter(cfg, model)
+		return googleCompleter(cfg, model)
 
 	case "github":
 		return azureCompleter(cfg, model)
@@ -129,24 +125,14 @@ func bedrockCompleter(cfg providerConfig, model modelContext) (provider.Complete
 	return bedrock.NewCompleter(model.ID, options...)
 }
 
-func cohereCompleter(cfg providerConfig, model modelContext) (provider.Completer, error) {
-	var options []cohere.Option
+func googleCompleter(cfg providerConfig, model modelContext) (provider.Completer, error) {
+	var options []google.Option
 
 	if cfg.Token != "" {
-		options = append(options, cohere.WithToken(cfg.Token))
+		options = append(options, google.WithToken(cfg.Token))
 	}
 
-	return cohere.NewCompleter(model.ID, options...)
-}
-
-func geminiCompleter(cfg providerConfig, model modelContext) (provider.Completer, error) {
-	var options []gemini.Option
-
-	if cfg.Token != "" {
-		options = append(options, gemini.WithToken(cfg.Token))
-	}
-
-	return gemini.NewCompleter(model.ID, options...)
+	return google.NewCompleter(model.ID, options...)
 }
 
 func groqCompleter(cfg providerConfig, model modelContext) (provider.Completer, error) {

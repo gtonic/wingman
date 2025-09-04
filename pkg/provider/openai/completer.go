@@ -9,8 +9,8 @@ import (
 
 	"github.com/adrianliechti/wingman/pkg/provider"
 
-	"github.com/openai/openai-go"
-	"github.com/openai/openai-go/shared"
+	"github.com/openai/openai-go/v2"
+	"github.com/openai/openai-go/v2/shared"
 )
 
 var _ provider.Completer = (*Completer)(nil)
@@ -200,6 +200,9 @@ func (c *Completer) convertCompletionRequest(input []provider.Message, options *
 	}
 
 	switch options.Effort {
+	case provider.ReasoningEffortMinimal:
+		req.ReasoningEffort = shared.ReasoningEffort("minimal")
+
 	case provider.ReasoningEffortLow:
 		req.ReasoningEffort = shared.ReasoningEffortLow
 
@@ -251,6 +254,8 @@ func (c *Completer) convertCompletionRequest(input []provider.Message, options *
 			"o3-mini",
 			"o4",
 			"o4-mini",
+
+			"gpt-5",
 		}
 
 		if slices.Contains(models, c.model) {
@@ -261,7 +266,20 @@ func (c *Completer) convertCompletionRequest(input []provider.Message, options *
 	}
 
 	if options.Temperature != nil {
-		req.Temperature = openai.Float(float64(*options.Temperature))
+		models := []string{
+			"o1",
+			"o1-mini",
+			"o3",
+			"o3-mini",
+			"o4",
+			"o4-mini",
+
+			"gpt-5",
+		}
+
+		if !slices.Contains(models, c.model) {
+			req.Temperature = openai.Float(float64(*options.Temperature))
+		}
 	}
 
 	return req, nil
@@ -283,7 +301,18 @@ func (c *Completer) convertMessages(input []provider.Message) ([]openai.ChatComp
 
 			message := openai.SystemMessage(parts)
 
-			if slices.Contains([]string{"o1", "o1-mini", "o3", "o3-mini", "o4", "o4-mini"}, c.model) {
+			models := []string{
+				"o1",
+				"o1-mini",
+				"o3",
+				"o3-mini",
+				"o4",
+				"o4-mini",
+
+				"gpt-5",
+			}
+
+			if slices.Contains(models, c.model) {
 				message = openai.DeveloperMessage(parts)
 			}
 
@@ -362,12 +391,14 @@ func (c *Completer) convertMessages(input []provider.Message) ([]openai.ChatComp
 				}
 
 				if c.ToolCall != nil {
-					call := openai.ChatCompletionMessageToolCallParam{
-						ID: c.ToolCall.ID,
+					call := openai.ChatCompletionMessageToolCallUnionParam{
+						OfFunction: &openai.ChatCompletionMessageFunctionToolCallParam{
+							ID: c.ToolCall.ID,
 
-						Function: openai.ChatCompletionMessageToolCallFunctionParam{
-							Name:      c.ToolCall.Name,
-							Arguments: c.ToolCall.Arguments,
+							Function: openai.ChatCompletionMessageFunctionToolCallFunctionParam{
+								Name:      c.ToolCall.Name,
+								Arguments: c.ToolCall.Arguments,
+							},
 						},
 					}
 
@@ -386,8 +417,8 @@ func (c *Completer) convertMessages(input []provider.Message) ([]openai.ChatComp
 	return result, nil
 }
 
-func convertTools(tools []provider.Tool) ([]openai.ChatCompletionToolParam, error) {
-	var result []openai.ChatCompletionToolParam
+func convertTools(tools []provider.Tool) ([]openai.ChatCompletionToolUnionParam, error) {
+	var result []openai.ChatCompletionToolUnionParam
 
 	for _, t := range tools {
 		if t.Name == "" {
@@ -408,8 +439,10 @@ func convertTools(tools []provider.Tool) ([]openai.ChatCompletionToolParam, erro
 			function.Strict = openai.Bool(*t.Strict)
 		}
 
-		tool := openai.ChatCompletionToolParam{
-			Function: function,
+		tool := openai.ChatCompletionToolUnionParam{
+			OfFunction: &openai.ChatCompletionFunctionToolParam{
+				Function: function,
+			},
 		}
 
 		result = append(result, tool)

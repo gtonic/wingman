@@ -4,15 +4,14 @@ import (
 	"errors"
 	"strings"
 
-	"github.com/adrianliechti/wingman/pkg/chain"
-	"github.com/adrianliechti/wingman/pkg/chain/agent"
-	"github.com/adrianliechti/wingman/pkg/chain/assistant"
-	"github.com/adrianliechti/wingman/pkg/chain/rag"
-	"github.com/adrianliechti/wingman/pkg/index"
 	"github.com/adrianliechti/wingman/pkg/limiter"
 	"github.com/adrianliechti/wingman/pkg/otel"
 	"github.com/adrianliechti/wingman/pkg/provider"
 	"github.com/adrianliechti/wingman/pkg/template"
+
+	"github.com/adrianliechti/wingman/pkg/chain"
+	"github.com/adrianliechti/wingman/pkg/chain/agent"
+
 	"github.com/adrianliechti/wingman/pkg/tool"
 	"golang.org/x/time/rate"
 )
@@ -29,8 +28,6 @@ func (cfg *Config) RegisterChain(id string, p chain.Provider) {
 
 type chainConfig struct {
 	Type string `yaml:"type"`
-
-	Index string `yaml:"index"`
 
 	Model  string `yaml:"model"`
 	Effort string `yaml:"effort"`
@@ -68,8 +65,6 @@ func WithMemoryConfig(mem *MemoryConfig) agent.Option {
 
 type chainContext struct {
 	Model string
-
-	Index index.Provider
 
 	Embedder  provider.Embedder
 	Completer provider.Completer
@@ -112,23 +107,6 @@ func (cfg *Config) registerChains(f *configFile) error {
 			Limiter: createLimiter(config.Limit),
 
 			Memory: config.Memory, // <-- Pass per-chain memory config
-		}
-
-		if config.Index != "" {
-			index, err := cfg.Index(config.Index)
-
-			if err != nil {
-				return err
-			}
-
-			context.Index = index
-		} else if config.Memory != nil && config.Memory.Index != "" {
-			// Fallback: use index defined inside the memory block when no top-level index is provided.
-			idx, err := cfg.Index(config.Memory.Index)
-			if err != nil {
-				return err
-			}
-			context.Index = idx
 		}
 
 		if config.Model != "" {
@@ -191,6 +169,16 @@ func (cfg *Config) registerChains(f *configFile) error {
 	return nil
 }
 
+func createChain(cfg chainConfig, context chainContext) (chain.Provider, error) {
+	switch strings.ToLower(cfg.Type) {
+	case "agent", "assistant":
+		return agentChain(cfg, context)
+
+	default:
+		return nil, errors.New("invalid chain type: " + cfg.Type)
+	}
+}
+
 func agentChain(cfg chainConfig, context chainContext) (chain.Provider, error) {
 	var options []agent.Option
 
@@ -199,9 +187,6 @@ func agentChain(cfg chainConfig, context chainContext) (chain.Provider, error) {
 	}
 	if context.Memory != nil {
 		options = append(options, WithMemoryConfig(context.Memory))
-	}
-	if context.Memory != nil && context.Index != nil {
-		options = append(options, agent.WithMemoryProvider(context.Index))
 	}
 
 	if context.Tools != nil && len(context.Tools) > 0 {
@@ -222,74 +207,3 @@ func agentChain(cfg chainConfig, context chainContext) (chain.Provider, error) {
 
 	return agent.New(context.Model, options...)
 }
-
-func assistantChain(cfg chainConfig, context chainContext) (chain.Provider, error) {
-	var options []assistant.Option
-
-	if context.Completer != nil {
-		options = append(options, assistant.WithCompleter(context.Completer))
-	}
-
-	if context.Messages != nil {
-		options = append(options, assistant.WithMessages(context.Messages...))
-	}
-
-	if context.Effort != "" {
-		options = append(options, assistant.WithEffort(context.Effort))
-	}
-
-	if cfg.Temperature != nil {
-		options = append(options, assistant.WithTemperature(*cfg.Temperature))
-	}
-
-	if context.Memory != nil && context.Index != nil {
-		options = append(options, assistant.WithMemoryProvider(context.Index))
-	}
-
-	return assistant.New(options...)
-}
-
-func ragChain(cfg chainConfig, context chainContext) (chain.Provider, error) {
-	var options []rag.Option
-
-	if context.Completer != nil {
-		options = append(options, rag.WithCompleter(context.Completer))
-	}
-
-	if context.Template != nil {
-		options = append(options, rag.WithTemplate(context.Template))
-	}
-
-	if context.Messages != nil {
-		options = append(options, rag.WithMessages(context.Messages...))
-	}
-
-	if context.Index != nil {
-		options = append(options, rag.WithIndex(context.Index))
-	}
-
-	if context.Effort != "" {
-		options = append(options, rag.WithEffort(context.Effort))
-	}
-
-	if cfg.Temperature != nil {
-		options = append(options, rag.WithTemperature(*cfg.Temperature))
-	}
-
-	return rag.New(options...)
-}
-
-func createChain(cfg chainConfig, context chainContext) (chain.Provider, error) {
-	switch strings.ToLower(cfg.Type) {
-	case "agent":
-		return agentChain(cfg, context)
-	case "assistant":
-		return assistantChain(cfg, context)
-	case "rag":
-		return ragChain(cfg, context)
-	default:
-		return nil, errors.New("invalid chain type: " + cfg.Type)
-	}
-}
-
-// ... rest of the file unchanged ...

@@ -10,7 +10,6 @@ RUN go mod download
 COPY . .
 RUN CGO_ENABLED=0 go build -o /server /src/cmd/server
 RUN CGO_ENABLED=0 go build -o /client /src/cmd/client
-RUN CGO_ENABLED=0 go build -o /ingest /src/cmd/ingest
 
 
 FROM alpine
@@ -18,7 +17,7 @@ FROM alpine
 # mailcap is for signal-cli, ca-certificates for HTTPS, tini as init
 RUN apk add --no-cache tini ca-certificates mailcap
 
-COPY --from=build /server /client /ingest /
+COPY --from=build /server /client /
 
 EXPOSE 8080
 

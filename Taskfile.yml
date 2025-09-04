@@ -25,9 +25,6 @@ includes:
   unstructured:
     taskfile: ./Taskfile.unstructured.yml
 
-  qdrant:
-    taskfile: ./Taskfile.qdrant.yml
-
 tasks:
   publish:
     cmds:

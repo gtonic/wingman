@@ -7,7 +7,7 @@ import (
 	"github.com/adrianliechti/wingman/pkg/provider"
 
 	"github.com/google/uuid"
-	"github.com/openai/openai-go"
+	"github.com/openai/openai-go/v2"
 )
 
 var _ provider.Transcriber = (*Transcriber)(nil)
@@ -29,7 +29,7 @@ func NewTranscriber(url, model string, options ...Option) (*Transcriber, error) 
 
 	return &Transcriber{
 		Config:         cfg,
-		transcriptions: openai.NewAudioTranscriptionService(cfg.Options()...),
+		transcriptions: openai.NewAudioTranscriptionService(cfg.HackOldAzure()...),
 	}, nil
 }
 

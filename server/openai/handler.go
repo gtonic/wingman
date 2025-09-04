@@ -14,20 +14,14 @@ import (
 
 type Handler struct {
 	*config.Config
-	http.Handler
 	MemoryManager *memory.MemoryManager
 }
 
 func New(cfg *config.Config, memoryManager *memory.MemoryManager) (*Handler, error) {
-	mux := chi.NewMux()
-
 	h := &Handler{
 		Config:        cfg,
-		Handler:       mux,
 		MemoryManager: memoryManager,
 	}
-
-	h.Attach(mux)
 	return h, nil
 }
 

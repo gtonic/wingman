@@ -7,10 +7,8 @@ import (
 
 	"github.com/adrianliechti/wingman/config"
 	"github.com/adrianliechti/wingman/server/api"
-	"github.com/adrianliechti/wingman/server/index"
 	"github.com/adrianliechti/wingman/server/mcp"
 	"github.com/adrianliechti/wingman/server/openai"
-	"github.com/adrianliechti/wingman/server/unstructured"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
@@ -23,12 +21,10 @@ type Server struct {
 	*config.Config
 	http.Handler
 
-	api    *api.Handler
-	mcp    *mcp.Handler
-	index  *index.Handler
-	openai *openai.Handler
+	api *api.Handler
+	mcp *mcp.Handler
 
-	unstructured *unstructured.Handler
+	openai *openai.Handler
 }
 
 func New(cfg *config.Config) (*Server, error) {
@@ -51,18 +47,6 @@ func New(cfg *config.Config) (*Server, error) {
 		return nil, err
 	}
 
-	index, err := index.New(cfg)
-
-	if err != nil {
-		return nil, err
-	}
-
-	unstructured, err := unstructured.New(cfg)
-
-	if err != nil {
-		return nil, err
-	}
-
 	mux := chi.NewMux()
 
 	s := &Server{
@@ -72,10 +56,7 @@ func New(cfg *config.Config) (*Server, error) {
 		api: api,
 		mcp: mcp,
 
-		index:  index,
 		openai: openai,
-
-		unstructured: unstructured,
 	}
 
 	mux.Use(middleware.Logger)
@@ -104,23 +85,11 @@ func New(cfg *config.Config) (*Server, error) {
 
 	mux.Use(s.handleAuth)
 
-	mux.Handle("/files/*", http.FileServer(http.Dir("public")))
-
 	mux.Route("/v1", func(r chi.Router) {
 		s.api.Attach(r)
 		s.mcp.Attach(r)
 		s.openai.Attach(r)
-
-		s.unstructured.Attach(r)
 	})
-
-	mux.Route("/v1/index", func(r chi.Router) {
-		s.index.Attach(r)
-	})
-
-	for name, handler := range cfg.APIs {
-		mux.Mount("/api/"+name, handler)
-	}
 
 	return s, nil
 }
